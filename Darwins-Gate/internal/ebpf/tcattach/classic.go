@@ -10,7 +10,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
-	"github.com/tnsr-q/QFT-Engine/internal/ebpf/objects"
+	"github.com/tnsr-q/Questions/internal/ebpf/objects"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tnsr-q/QFT-Engine/internal/obs/metrics"
+	"github.com/tnsr-q/Questions/internal/obs/metrics"
 )
 
 // LoopConfig configures the background polling loops.
