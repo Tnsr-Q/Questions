@@ -1,0 +1,12 @@
+[package]
+name = "stateviz-inspector-native"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+stateviz-manifold = { path = "../../crates/manifold" }
+stateviz-ppf_floquet_plugin = { path = "../../crates/plugins/ppf_floquet_plugin" }
+stateviz-gravity14_plugin = { path = "../../crates/plugins/gravity14_plugin" }
+stateviz-redshift_plugin = { path = "../../crates/plugins/redshift_plugin" }
+stateviz-chaosbf_plugin = { path = "../../crates/plugins/chaosbf_plugin" }
+anyhow = "1"

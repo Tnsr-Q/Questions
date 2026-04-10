@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ric.kernel_descriptor.b64.v1.schema",
+  "title": "KernelDescriptor (Base64) v1",
+  "type": "object",
+  "required": ["id", "title", "capability", "schemas"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "object",
+      "required": ["name", "version", "contract_version"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "contract_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+
+    "capability": {
+      "type": "object",
+      "required": ["supports_cluster_compute", "supports_browser_viz", "supports_browser_preview_compute"],
+      "additionalProperties": false,
+      "properties": {
+        "supports_cluster_compute": { "type": "boolean" },
+        "supports_browser_viz": { "type": "boolean" },
+        "supports_browser_preview_compute": { "type": "boolean" }
+      }
+    },
+
+    "schemas": {
+      "type": "object",
+      "required": ["parameters_json_schema_b64", "ui_hints_json_schema_b64"],
+      "additionalProperties": false,
+      "properties": {
+        "parameters_json_schema_b64": {
+          "type": "string",
+          "minLength": 4,
+          "contentEncoding": "base64",
+          "description": "Base64(UTF-8 JSON Schema) validating manifest.parameters"
+        },
+        "ui_hints_json_schema_b64": {
+          "type": "string",
+          "minLength": 4,
+          "contentEncoding": "base64",
+          "description": "Base64(UTF-8 JSON Schema) validating ui_hints"
+        },
+        "results_json_schema_b64": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "Optional: Base64(UTF-8 JSON Schema) validating results JSON"
+        },
+
+        "parameters_json_schema_sha256_hex": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "ui_hints_json_schema_sha256_hex": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "results_json_schema_sha256_hex": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+
+    "ui_hints_b64": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "description": "Optional: Base64(UTF-8 JSON) UI hints payload"
+    },
+    "ui_hints_sha256_hex": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+
+    "examples": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "manifest_parameters_example": { "type": "object" }
+      }
+    }
+  }
+}

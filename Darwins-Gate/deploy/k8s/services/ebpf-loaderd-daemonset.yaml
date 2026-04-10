@@ -1,0 +1,97 @@
+---
+# ebpf-loaderd DaemonSet
+# Loads and pins TC eBPF programs to network interfaces on each node.
+# Must run privileged with CAP_BPF, CAP_NET_ADMIN, CAP_SYS_ADMIN.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ebpf-loaderd
+  namespace: darwins-gate
+  labels:
+    app: ebpf-loaderd
+    component: dataplane
+    managed-by: kustomize
+spec:
+  selector:
+    matchLabels:
+      app: ebpf-loaderd
+  template:
+    metadata:
+      labels:
+        app: ebpf-loaderd
+        component: dataplane
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      # Tolerate all taints to ensure scheduling on every node
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+        - operator: Exists
+          effect: NoExecute
+      # Run on the host network namespace for interface access
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: ebpf-loaderd
+          image: tensorq/ebpf-loaderd:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/ebpf-loaderd
+          args:
+            - -iface=eth0
+            - -dir=egress
+            - -pin-root=/sys/fs/bpf/tensorq
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - BPF
+                - NET_ADMIN
+                - SYS_ADMIN
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: true
+          volumeMounts:
+            - name: bpf-fs
+              mountPath: /sys/fs/bpf
+              mountPropagation: Bidirectional
+          # No HTTP health endpoint; liveness inferred from process running
+          # Use exec probe to check process
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pgrep -x ebpf-loaderd || exit 1
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test -f /sys/fs/bpf/tensorq/routing_map && test -f /sys/fs/bpf/tensorq/stats_map || exit 1
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: bpf-fs
+          hostPath:
+            path: /sys/fs/bpf
+            type: DirectoryOrCreate
+      # Ensure the BPF filesystem is mounted from the host
+      dnsPolicy: ClusterFirstWithHostNet
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30

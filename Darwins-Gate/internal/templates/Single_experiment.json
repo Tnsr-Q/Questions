@@ -1,0 +1,142 @@
+Experimental manifest (single file)
+
+File: research-station/configs/experiment_manifest.RIC-LIGO-O4-001.json
+
+{
+  "manifest_version": "ric.experiment_manifest.v1",
+
+  "experiment": {
+    "contract_version": "ric.echo_search.v1",
+    "experiment_id": "RIC-LIGO-O4-001",
+    "title": "Parity-odd comb test on GW150914",
+    "owner": "Tanner",
+    "semver": "1.0.0"
+  },
+
+  "config": {
+    "contract_version": "ric.echo_search.v1",
+    "experiment_id": "RIC-LIGO-O4-001",
+    "metadata": {
+      "author": "Tanner",
+      "theory": "Recursive Inertial Collapse (RIC)",
+      "version": "1.0.0",
+      "notes": "Parity-odd comb test on GW150914. Seeking evidence of Merlin Comb signal."
+    },
+
+    "data_scope": {
+      "event": "GW150914",
+      "detectors": ["H1", "L1"],
+      "gps_merger": 1126259462.4,
+      "window": {
+        "on_source_duration": 32.0,
+        "off_source_duration": 1024.0,
+        "psd_segment_length": 4.0
+      }
+    },
+
+    "hyperparameters": {
+      "band_hz": [30.0, 500.0],
+      "comb": {
+        "delta_f_hz": 7.64,
+        "tooth_width_hz": 0.10,
+        "parity": "odd"
+      },
+      "scan": {
+        "dt_range": [-0.01, 0.01],
+        "dt_step": 0.0001
+      }
+    },
+
+    "validation": {
+      "null_tests": [
+        {
+          "method": "shifted_comb",
+          "n_trials": 5000,
+          "shift_hz_range": [0.25, 3.0],
+          "shift_strategy": "uniform"
+        },
+        {
+          "method": "time_slides",
+          "n_slides": 1000,
+          "slide_step": 1.0
+        }
+      ],
+      "injection": {
+        "enabled": true,
+        "snr_levels": [5, 8, 10, 15, 20]
+      }
+    },
+
+    "reproducibility": {
+      "seed": 42,
+      "require_hash_check": true
+    }
+  },
+
+  "bindings": {
+    "inputs": {
+      "h1": {
+        "path": "/data/ligo/H-H1_LOSC_4_V2-1126259446-32.hdf5",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "l1": {
+        "path": "/data/ligo/L-L1_LOSC_4_V2-1126259446-32.hdf5",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    }
+  },
+
+  "execution": {
+    "determinism": {
+      "PYTHONHASHSEED": "0",
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "NUMEXPR_NUM_THREADS": "1"
+    }
+  },
+
+  "provenance": {
+    "git_commit": "abcdef1234567890",
+    "nix_drv": "/nix/store/xxxxxxxxxxxxxxxx-research-station-0.1.0.drv",
+    "build_id": "k8s-job-90210",
+    "orchestrator": {
+      "node": "worker-7",
+      "namespace": "ric",
+      "notes": "bound by Go/Cilium controller"
+    }
+  },
+
+  "outputs": {
+    "results_path": "out/results.RIC-LIGO-O4-001.json",
+    "manifest_out_path": "out/run_manifest_out.RIC-LIGO-O4-001.json"
+  }
+}
+What this buys you
+One file = one run. If the manifest is identical, the intended run is identical.
+No hidden state: config + inputs + expected hashes are all bound here.
+Orchestrator-friendly: Go can generate this JSON and drop it into a volume; Python consumes it.
+How the kernel would be invoked (manifest-only)
+
+Example (assuming you adapt the CLI to accept manifest-only and use outputs.* if present):
+
+run-analysis \
+  --manifest-in configs/experiment_manifest.RIC-LIGO-O4-001.json \
+  --schema configs/ric_echo_search.schema.json
+
+If you keep CLI --output / --manifest-out, you can omit outputs in the manifest and pass them via flags instead.
+
+Minimal manifest (tightest possible)
+
+If you want the bare minimum:
+
+{
+  "manifest_version": "ric.experiment_manifest.v1",
+  "config": { "... full config object ..." },
+  "bindings": {
+    "inputs": {
+      "h1": { "path": "/data/H1.hdf5", "sha256": "..." },
+      "l1": { "path": "/data/L1.hdf5", "sha256": "..." }
+    }
+  }
+}

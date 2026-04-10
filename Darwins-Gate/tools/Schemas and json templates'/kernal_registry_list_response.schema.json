@@ -1,0 +1,21 @@
+1.2 schemas/kernel_registry_list_response.v1.schema.json
+
+If your registry is served via proto/ConnectRPC, you can still embed these JSON schemas as bytes; this schema is for the content.
+
+
+
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ric.kernel_registry.list_response.v1.schema",
+  "title": "KernelRegistry List Response v1",
+  "type": "object",
+  "required": ["registry_version", "kernels"],
+  "additionalProperties": false,
+  "properties": {
+    "registry_version": { "type": "string", "const": "ric.kernel_registry.v1" },
+    "kernels": {
+      "type": "array",
+      "items": { "$ref": "ric.kernel_descriptor.v1.schema" }
+    }
+  }
+}

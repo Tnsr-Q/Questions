@@ -1,0 +1,18 @@
+[package]
+name = "tensorq-rust"
+version = "0.2.0"
+edition = "2021"
+description = "TensorQ Darwinian ONNX Export & Physics Kernel — PyO3 bridge"
+
+[lib]
+name = "tensorq_rust"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module"] }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true

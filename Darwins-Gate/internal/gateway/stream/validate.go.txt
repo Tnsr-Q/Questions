@@ -1,0 +1,13 @@
+package stream
+
+import "fmt"
+
+func ValidateInput(in BuildInput) error {
+	if in.ModelID == "" {
+		return fmt.Errorf("model_id is required")
+	}
+	if len(in.HyperParameters) > 1024 {
+		return fmt.Errorf("too many hyper_parameters")
+	}
+	return nil
+}

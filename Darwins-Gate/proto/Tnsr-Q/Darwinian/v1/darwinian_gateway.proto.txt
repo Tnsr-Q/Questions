@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package tensorq.darwinian.v1;
+
+option go_package = "github.com/tnsr-q/QFT-engine/gen/go/darwinianv1";
+
+service CortexGateway {
+  rpc StreamSimulation(SimRequest) returns (stream CodeChunk);
+  rpc UpdateAlphaRoute(RouteMutation) returns (RouteAck);
+}
+
+message SimRequest {
+  string model_id = 1;
+  map<string, string> hyper_parameters = 2;
+  int32 chunk_size_hint = 3;
+}
+
+message CodeChunk {
+  string content = 1;
+  ChunkType type = 2;
+  uint64 sequence_id = 3;
+}
+
+enum ChunkType {
+  CHUNK_TYPE_UNSPECIFIED = 0;
+  CHUNK_TYPE_PREAMBLE = 1;
+  CHUNK_TYPE_DEFINITION = 2;
+  CHUNK_TYPE_EXECUTION = 3;
+}
+
+message RouteMutation {
+  string mutation_id = 1;
+  string virtual_ip = 2;
+  string target_pod_ip = 3;
+  string target_mac_address = 4; // optional hint, not authority
+  uint64 expected_route_version = 5;
+  
+  // Request TTL: If the gateway cannot stage/commit this mutation 
+  // before this duration expires, it must drop the proposal.
+  uint64 ttl_ms = 6;
+  
+  bool dry_run = 7;
+  uint64 epoch = 8;
+  string reason = 9;
+}
+
+enum RouteStatus {
+  ROUTE_STATUS_UNSPECIFIED = 0;
+  ROUTE_STATUS_APPLIED = 1;
+  ROUTE_STATUS_STAGED = 2;
+  ROUTE_STATUS_REJECTED = 3;
+  ROUTE_STATUS_PROBE_FAILED = 4;
+  ROUTE_STATUS_ROLLED_BACK = 5;
+}
+
+message RouteAck {
+  RouteStatus status = 1;
+  string status_message = 2;
+  int64 applied_at_unix_ns = 3;
+  uint64 applied_route_version = 4;
+  repeated string checks_passed = 5;
+  repeated string checks_failed = 6;
+  string rollback_reason = 7;
+  string observability_id = 8;
+}

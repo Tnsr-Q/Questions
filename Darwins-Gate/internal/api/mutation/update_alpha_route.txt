@@ -1,0 +1,130 @@
+package gateway
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"time"
+
+	"github.com/cilium/ebpf"
+	pb "github.com/tnsr-q/QFT-engine/gen/go/darwinianv1"
+)
+
+const routingMapPath = "/sys/fs/bpf/tnsr-q/routing_map"
+
+// RouteEntry must match the C struct exactly:
+//
+// struct route_entry {
+//     __u32 dst_ip;
+//     __u8  dst_mac[6];
+//     __u16 pad;
+// };
+type RouteEntry struct {
+	DstIP  uint32
+	DstMAC [6]byte
+	Pad    uint16
+}
+
+func ipv4ToBE32(ip net.IP) (uint32, bool) {
+	ip4 := ip.To4()
+	if ip4 == nil {
+		return 0, false
+	}
+	return uint32(ip4[0])<<24 |
+		uint32(ip4[1])<<16 |
+		uint32(ip4[2])<<8 |
+		uint32(ip4[3]), true
+}
+
+func (s *Server) UpdateAlphaRoute(ctx context.Context, req *pb.RouteMutation) (*pb.RouteAck, error) {
+	if req.TtlMs > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(req.TtlMs)*time.Millisecond)
+		defer cancel()
+	}
+
+	ack := &pb.RouteAck{
+		ObservabilityId: req.MutationId,
+		ChecksPassed:    make([]string, 0, 4),
+		ChecksFailed:    make([]string, 0, 4),
+	}
+
+	// 1. Parse and normalize IPv4 only
+	vipIP := net.ParseIP(req.VirtualIp)
+	targetIP := net.ParseIP(req.TargetPodIp)
+
+	vipBE, okVIP := ipv4ToBE32(vipIP)
+	targetBE, okTarget := ipv4ToBE32(targetIP)
+
+	var macArr [6]byte
+	if req.TargetMacAddress != "" {
+		hw, err := net.ParseMAC(req.TargetMacAddress)
+		if err != nil || len(hw) != 6 {
+			ack.Status = pb.RouteStatus_ROUTE_STATUS_REJECTED
+			ack.StatusMessage = "Admission rejected: malformed MAC address"
+			ack.ChecksFailed = append(ack.ChecksFailed, "FORMAT_VALIDATION")
+			return ack, nil
+		}
+		copy(macArr[:], hw)
+	}
+
+	if !okVIP || !okTarget {
+		ack.Status = pb.RouteStatus_ROUTE_STATUS_REJECTED
+		ack.StatusMessage = "Admission rejected: virtual_ip and target_pod_ip must be valid IPv4 addresses"
+		ack.ChecksFailed = append(ack.ChecksFailed, "FORMAT_VALIDATION")
+		return ack, nil
+	}
+	ack.ChecksPassed = append(ack.ChecksPassed, "FORMAT_VALIDATION")
+
+	// 2. TTL / queue expiry
+	if err := ctx.Err(); err != nil {
+		ack.Status = pb.RouteStatus_ROUTE_STATUS_REJECTED
+		ack.StatusMessage = "Admission rejected: request TTL expired before commit"
+		ack.ChecksFailed = append(ack.ChecksFailed, "TTL_CHECK")
+		return ack, nil
+	}
+	ack.ChecksPassed = append(ack.ChecksPassed, "TTL_CHECK")
+
+	// 3. Dry run
+	if req.DryRun {
+		ack.Status = pb.RouteStatus_ROUTE_STATUS_STAGED
+		ack.StatusMessage = "Dry run successful: payload validated, kernel unmodified"
+		return ack, nil
+	}
+
+	// 4. Open pinned map
+	routeMap, err := ebpf.LoadPinnedMap(routingMapPath, nil)
+	if err != nil {
+		ack.Status = pb.RouteStatus_ROUTE_STATUS_REJECTED
+		ack.StatusMessage = fmt.Sprintf("Admission rejected: unable to access pinned routing map: %v", err)
+		ack.ChecksFailed = append(ack.ChecksFailed, "BPF_MAP_MOUNT")
+		return ack, nil
+	}
+	defer routeMap.Close()
+	ack.ChecksPassed = append(ack.ChecksPassed, "BPF_MAP_MOUNT")
+
+	// 5. Build exact kernel-compatible entry
+	entry := RouteEntry{
+		DstIP:  targetBE,
+		DstMAC: macArr,
+		Pad:    0,
+	}
+
+	// 6. Apply update
+	if err := routeMap.Update(&vipBE, &entry, ebpf.UpdateAny); err != nil {
+		ack.Status = pb.RouteStatus_ROUTE_STATUS_REJECTED
+		ack.StatusMessage = fmt.Sprintf("Kernel fault: map update rejected: %v", err)
+		ack.ChecksFailed = append(ack.ChecksFailed, "BPF_MAP_UPDATE")
+		return ack, nil
+	}
+
+	ack.Status = pb.RouteStatus_ROUTE_STATUS_APPLIED
+	ack.StatusMessage = "Route committed to eBPF map successfully"
+	ack.AppliedAtUnixNs = time.Now().UnixNano()
+	ack.ChecksPassed = append(ack.ChecksPassed, "BPF_MAP_UPDATE")
+
+	// Only set this if you actually maintain route version state elsewhere.
+	ack.AppliedRouteVersion = req.ExpectedRouteVersion + 1
+
+	return ack, nil
+}

@@ -1,0 +1,15 @@
+[workspace]
+members = [
+  "crates/manifold",
+  "crates/scene",
+  "crates/bridges/chaosbf_bridge",
+  "crates/gravity14_core",
+  "crates/engine_wasm",
+  "crates/gfx_wgpu",
+  "crates/plugins/ppf_floquet_plugin",
+  "crates/plugins/gravity14_plugin",
+  "crates/plugins/redshift_plugin",
+  "crates/plugins/chaosbf_plugin",
+  "apps/inspector_native"
+]
+resolver = "2"

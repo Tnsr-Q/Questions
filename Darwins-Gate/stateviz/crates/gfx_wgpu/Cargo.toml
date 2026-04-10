@@ -1,0 +1,17 @@
+[package]
+name = "stateviz-gfx-wgpu"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["wgpu/default"]
+web = []
+native = []
+
+[dependencies]
+wgpu = "0.19"
+pollster = "0.3"
+cfg-if = "1"
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+web-sys = { version = "0.3", features = ["HtmlCanvasElement", "Window", "Document"], optional = true }

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ric.max_preflight_request.v1.schema",
+  "title": "Max Preflight Request v1",
+  "type": "object",
+  "required": ["request_version", "manifest", "runtime_context"],
+  "additionalProperties": false,
+  "properties": {
+    "request_version": { "type": "string", "const": "ric.max_preflight_request.v1" },
+
+    "manifest": {
+      "type": "object",
+      "description": "Full experiment manifest JSON (your ric.experiment_manifest.v1).",
+      "additionalProperties": true
+    },
+
+    "runtime_context": {
+      "type": "object",
+      "required": ["platform", "cuda", "resources", "topology"],
+      "additionalProperties": false,
+      "properties": {
+        "platform": {
+          "type": "object",
+          "required": ["os", "arch"],
+          "additionalProperties": true,
+          "properties": {
+            "os": { "type": "string" },
+            "arch": { "type": "string" }
+          }
+        },
+
+        "cuda": {
+          "type": "object",
+          "required": ["driver_version", "runtime_version", "devices"],
+          "additionalProperties": false,
+          "properties": {
+            "driver_version": { "type": "string" },
+            "runtime_version": { "type": "string" },
+            "cutlass_version": { "type": "string" },
+            "cudnn_version": { "type": "string" },
+            "devices": {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "type": "object",
+                "required": ["index", "name", "sm", "memory_bytes"],
+                "additionalProperties": true,
+                "properties": {
+                  "index": { "type": "integer", "minimum": 0 },
+                  "name": { "type": "string" },
+                  "sm": { "type": "integer", "minimum": 0, "description": "Compute capability encoded as 80, 86, 90, etc." },
+                  "memory_bytes": { "type": "integer", "minimum": 0 },
+                  "supports_p2p": { "type": "boolean" },
+                  "supports_graph_capture": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+
+        "resources": {
+          "type": "object",
+          "required": ["cpu_cores", "memory_bytes"],
+          "additionalProperties": false,
+          "properties": {
+            "cpu_cores": { "type": "integer", "minimum": 1 },
+            "memory_bytes": { "type": "integer", "minimum": 0 },
+            "gpu_count": { "type": "integer", "minimum": 0 },
+            "time_budget_seconds": { "type": "integer", "minimum": 1 }
+          }
+        },
+
+        "topology": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "node_id": { "type": "string" },
+            "fabric": { "type": "string", "enum": ["pcie", "nvlink", "infiniband", "unknown"] },
+            "latency_class": { "type": "string", "enum": ["low", "medium", "high", "unknown"] }
+          }
+        },
+
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Determinism-related env vars observed."
+        }
+      }
+    }
+  }
+}

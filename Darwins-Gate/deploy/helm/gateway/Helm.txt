@@ -1,0 +1,211 @@
+# values.yaml
+namespace: darwinian-grid
+
+images:
+  gateway: "my-repo/darwinian-gateway:latest"
+  overseer: "my-repo/darwinian-overseer:latest"
+  cell: "my-repo/darwinian-cell:latest" # The Overseer needs to know this to spawn children
+  pyrons: "python:3.9-slim"
+  redis: "redis:6.2-alpine"
+
+replicas:
+  gateway: 2 # High availability for the frontend
+
+config:
+  evolution_interval: "10" # Seconds between Overseer checks
+  mutation_rate: "0.1"     # How drastically the DNA changes
+  initial_gravity: "9.8"   # Starting physics constant
+
+service:
+  gatewayPort: 8080
+  pyroPort: 9090
+
+3. The Manifests (templates/)
+A. RBAC Permissions (templates/rbac.yaml)
+The "Divine Right" for the Overseer to spawn/kill pods.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-overseer-sa
+  namespace: {{ .Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-god-mode
+  namespace: {{ .Values.namespace }}
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-binding
+  namespace: {{ .Values.namespace }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-overseer-sa
+roleRef:
+  kind: Role
+  name: {{ .Release.Name }}-god-mode
+  apiGroup: rbac.authorization.k8s.io
+
+B. The Infrastructure (templates/redis.yaml, templates/pyro-ns.yaml)
+The State and the Nerves.
+# templates/redis.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-master
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+  - port: 6379
+  selector:
+    app: redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: {{ .Values.images.redis }}
+        ports:
+        - containerPort: 6379
+
+# templates/pyro-ns.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: pyro-ns
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+  - port: 9090
+  selector:
+    app: pyro-ns
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pyro-ns
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: pyro-ns
+  template:
+    metadata:
+      labels:
+        app: pyro-ns
+    spec:
+      containers:
+      - name: ns
+        image: {{ .Values.images.pyrons }}
+        command: ["pyro5-ns", "-n", "0.0.0.0"]
+        ports:
+        - containerPort: 9090
+
+C. The Overseer (templates/overseer.yaml)
+The logic that injects the cell image name into the environment so the Python script knows what to spawn.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: overseer
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: overseer
+  template:
+    metadata:
+      labels:
+        app: overseer
+    spec:
+      serviceAccountName: {{ .Release.Name }}-overseer-sa
+      containers:
+      - name: overseer
+        image: {{ .Values.images.overseer }}
+        env:
+        - name: NAMESPACE
+          value: {{ .Values.namespace }}
+        - name: CELL_IMAGE
+          value: {{ .Values.images.cell }}
+        - name: PYRO_NS_URI
+          value: "PYRO:Pyro.NameServer@pyro-ns:9090"
+        - name: EVOLUTION_INTERVAL
+          value: {{ .Values.config.evolution_interval | quote }}
+
+D. The Gateway (templates/gateway.yaml)
+The HTTP/3 Bridge exposed to the world.
+apiVersion: v1
+kind: Service
+metadata:
+  name: darwinian-gateway
+  namespace: {{ .Values.namespace }}
+spec:
+  type: LoadBalancer # Exposes IP to the internet
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicas.gateway }}
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+      - name: gateway
+        image: {{ .Values.images.gateway }}
+        ports:
+        - containerPort: 8080
+        env:
+        - name: REDIS_ADDR
+          value: "redis-master:6379"
+
+4. How to Deploy (The "One Command")
+First, ensure your Docker images (gateway, overseer, cell) are built and pushed to a registry your cluster can access.
+Then, ignite the Big Bang:
+# 1. Create the namespace
+kubectl create namespace darwinian-grid
+
+# 2. Deploy the World
+helm install genesis ./darwinian-world
+
+What happens next?
+ * T+0s: Redis, PyroNS, Gateway, and Overseer pods spin up.
+ * T+10s: The Overseer wakes up, sees 0 fitness scores, and panics.
+ * T+12s: The Overseer uses its ServiceAccount to dynamically spawn 5 solver-cell pods.
+ * T+20s: The Cells register with PyroNS.
+ * T+25s: A User hits the Gateway IP. The Gateway checks Redis (empty), waits...
+ * T+30s: A Cell computes a result, rewards itself, and writes its IP to Redis as the "Alpha".
+ * T+31s: The Gateway streams the data to the user.
+Kubernetes Helm Charts - The Ultimate Guide
+This video will guide you through the process of packaging, testing, and managing the exact Helm chart structure created above, ensuring your "World" deployment is repeatable and production-ready.

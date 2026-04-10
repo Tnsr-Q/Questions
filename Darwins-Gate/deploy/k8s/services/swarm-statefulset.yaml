@@ -1,0 +1,244 @@
+---
+# swarm Pyro NameServer Deployment
+# Central registry for swarm cells to register and discover each other.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pyro-ns
+  namespace: darwins-gate
+  labels:
+    app: pyro-ns
+    component: swarm
+    managed-by: kustomize
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: pyro-ns
+  template:
+    metadata:
+      labels:
+        app: pyro-ns
+        component: swarm
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      containers:
+        - name: pyro-ns
+          image: python:3.9-slim
+          imagePullPolicy: IfNotPresent
+          command:
+            - pyro5-ns
+          args:
+            - -n
+            - "0.0.0.0"
+          ports:
+            - name: pyro
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: PYRO_LOGLEVEL
+              value: "INFO"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            tcpSocket:
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Mi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+---
+# pyro-ns Service
+# Exposes the Pyro NameServer on port 9090.
+apiVersion: v1
+kind: Service
+metadata:
+  name: pyro-ns
+  namespace: darwins-gate
+  labels:
+    app: pyro-ns
+    component: swarm
+spec:
+  type: ClusterIP
+  selector:
+    app: pyro-ns
+  ports:
+    - name: pyro
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+---
+# solver-cell StatefulSet
+# Darwinian GA solver cells with stable identities for swarm computation.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: solver-cell
+  namespace: darwins-gate
+  labels:
+    app: solver-cell
+    component: swarm
+    managed-by: kustomize
+spec:
+  serviceName: solver-cell
+  replicas: 3
+  selector:
+    matchLabels:
+      app: solver-cell
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: solver-cell
+        component: swarm
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      serviceAccountName: solver-cell-sa
+      containers:
+        - name: solver-cell
+          image: tensorq/solver-cell:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - modern_meta.swarm_node
+          ports:
+            - name: pyro
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: PYRO_NS_URI
+              value: "PYRO:NameServer@pyro-ns:9090"
+            - name: PYRO_NS_HOST
+              value: "pyro-ns"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            # GENOME injected dynamically by overseer-coordinatord
+            - name: GENOME
+              value: ""
+            - name: EVOLUTION_INTERVAL
+              value: "10"
+            - name: MUTATION_RATE
+              value: "0.1"
+            - name: INITIAL_GRAVITY
+              value: "9.8"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            tcpSocket:
+              port: 9090
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 128Mi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+---
+# solver-cell Headless Service
+# Required for StatefulSet stable network identities.
+apiVersion: v1
+kind: Service
+metadata:
+  name: solver-cell
+  namespace: darwins-gate
+  labels:
+    app: solver-cell
+    component: swarm
+spec:
+  clusterIP: None
+  selector:
+    app: solver-cell
+  ports:
+    - name: pyro
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+---
+# solver-cell ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: solver-cell-sa
+  namespace: darwins-gate
+  labels:
+    app: solver-cell
+    managed-by: kustomize

@@ -1,0 +1,75 @@
+import numpy as np
+import pytest
+
+
+def test_pmap_regge_solver_scan_and_certificate():
+    jnp = pytest.importorskip("jax.numpy")
+
+    from src.regge_pmap_solver import PMappedReggeSolver
+
+    num_devices = 1
+    solver = PMappedReggeSolver(N_t=16, t_min=1e-2, t_max=1e2, num_devices=num_devices)
+    delta_mock = jnp.zeros(16) + 0.05
+
+    traj = solver.scan_regge_trajectory_pmap(delta_mock)
+    cert = solver.verify_fakeon_virtualization(traj)
+
+    assert traj.shape == (16,)
+    assert cert["status"] in {"VERIFIED", "PENDING"}
+    assert isinstance(cert["fakeon_virtualized"], bool)
+    assert isinstance(cert["Re_alpha_at_M2"], float)
+    assert isinstance(cert["trajectory"], np.ndarray)
+    assert isinstance(cert["t_grid"], np.ndarray)
+
+
+def test_checkpointed_distributed_hessian_pl_callback_smoke():
+    pl = pytest.importorskip("pytorch_lightning")
+    torch = pytest.importorskip("torch")
+
+    from src.callbacks.checkpointed_hessian_pl import CheckpointedDistributedHessianPLCallback
+
+    class DummyModule(pl.LightningModule):
+        def __init__(self):
+            super().__init__()
+            self.net = torch.nn.Linear(3, 1)
+
+        def training_step(self, batch, batch_idx):
+            del batch_idx
+            x, _ = batch
+            out = self.net(x)
+            return (out**2).mean()
+
+        def configure_optimizers(self):
+            return torch.optim.Adam(self.parameters(), lr=1e-3)
+
+    class ToyDataset(torch.utils.data.Dataset):
+        def __len__(self):
+            return 8
+
+        def __getitem__(self, idx):
+            del idx
+            return torch.randn(3), torch.tensor([0.0])
+
+    model = DummyModule()
+    cb = CheckpointedDistributedHessianPLCallback(
+        monitor_every=1,
+        warmup_steps=0,
+        pl_tol=1e-6,
+        use_checkpointing=False,
+    )
+    trainer = pl.Trainer(
+        max_epochs=1,
+        limit_train_batches=4,
+        callbacks=[cb],
+        logger=False,
+        enable_checkpointing=False,
+        accelerator="cpu",
+        enable_model_summary=False,
+    )
+
+    loader = torch.utils.data.DataLoader(ToyDataset(), batch_size=1)
+    trainer.fit(model, train_dataloaders=loader)
+
+    assert cb.mu_global is not None
+    assert cb.L_global is not None
+    assert cb.L_global >= cb.mu_global

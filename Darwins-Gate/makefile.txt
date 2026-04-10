@@ -1,0 +1,27 @@
+BPF_CLANG ?= clang
+BPF_CFLAGS := -O2 -g -Wall -Werror -target bpf
+BPF_INCLUDES := -I./bpf -I./bpf/include
+
+BPF_SRC_TC := bpf/tc/router_tc.c
+BPF_OBJ_TC := bpf/tc/router_tc.bpf.o
+
+.PHONY: all bpf go clean
+
+all: bpf go
+
+bpf: $(BPF_OBJ_TC)
+
+$(BPF_OBJ_TC): $(BPF_SRC_TC) bpf/include/route_entry.h bpf/include/maps.h
+	$(BPF_CLANG) $(BPF_CFLAGS) $(BPF_INCLUDES) -c $< -o $@
+
+go:
+	go build ./...
+
+clean:
+	rm -f $(BPF_OBJ_TC)
+
+
+####if you use bpf2go
+##generate:
+##	go generate ./...
+##EX. //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -cflags "-O2 -g -Wall -Werror -I../../../bpf -I../../../bpf/include" Router ../../../bpf/tc/router_tc.c -- -target bpf

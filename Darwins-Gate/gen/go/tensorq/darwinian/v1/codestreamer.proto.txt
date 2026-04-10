@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package tensorq.codestreamer.v1;
+
+option go_package = "github.com/tensorq/codestreamer/gen/go/codestreamerv1";
+
+// The PhysicsService defines the RPC pipeline for streaming generated code.
+service PhysicsService {
+  // StreamSimulation initiates a server-side stream.
+  // The client requests a specific model configuration, and the server
+  // responds with a continuous stream of CodeChunks as they are generated.
+  rpc StreamSimulation(SimRequest) returns (stream CodeChunk);
+}
+
+// SimRequest carries the prompt/parameters needed to generate the physics model.
+message SimRequest {
+  // A unique identifier for the requested model type (e.g., "black_hole_merger").
+  string model_type = 1;
+
+  // Flexible parameters to customize the generation (e.g., "gravity_constant": "10.5").
+  // This allows the backend AI/Template engine to inject variables into the Python code.
+  map<string, string> parameters = 2;
+
+  // Optional: Session ID to link this generation to a specific user context or history.
+  string session_id = 3;
+}
+
+// CodeChunk represents a fragment of the generated Python code.
+message CodeChunk {
+  // The raw string of Python code (e.g., a line, a specific function, or a block).
+  string code = 1;
+
+  // Sequence number to ensure logical ordering (useful for debugging the generator).
+  int64 sequence_id = 2;
+
+  // Metadata hint to help the frontend decide when to execute the buffer.
+  // This enables "incremental execution" in Pyodide.
+  ChunkType chunk_type = 3;
+}
+
+// ChunkType helps the frontend categorize parts of the script for optimization.
+enum ChunkType {
+  CHUNK_TYPE_UNSPECIFIED = 0;
+  CHUNK_TYPE_IMPORT = 1;      // e.g., "import numpy as np" - Safe to run immediately.
+  CHUNK_TYPE_DEFINITION = 2;  // e.g., "def calculate_trajectory(t):" - Buffer this.
+  CHUNK_TYPE_EXECUTION = 3;   // e.g., "print(calculate_trajectory(10))" - Trigger run.
+  CHUNK_TYPE_EOF = 4;         // Signal that the stream is complete.
+}

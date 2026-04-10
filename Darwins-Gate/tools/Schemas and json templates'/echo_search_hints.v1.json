@@ -1,0 +1,174 @@
+UI hints for ligo.echo_search
+
+These are kernel-specific UI hints that validate against ric.ui_hints.v1.schema.
+
+kernels/ligo.echo_search/ui_hints.json
+
+{
+  "ui_hints_version": "ric.ui_hints.v1",
+  "kernel": {
+    "name": "ligo.echo_search",
+    "contract_version": "ric.echo_search.v1"
+  },
+
+  "layout": {
+    "groups": [
+      {
+        "id": "data",
+        "title": "Data Scope",
+        "description": "Event, detectors, windowing (pre-registered).",
+        "paths": [
+          "/data_scope/event",
+          "/data_scope/detectors",
+          "/data_scope/gps_merger",
+          "/data_scope/window/on_source_duration",
+          "/data_scope/window/off_source_duration",
+          "/data_scope/window/psd_segment_length"
+        ]
+      },
+      {
+        "id": "hyper",
+        "title": "Search Hyperparameters",
+        "description": "Band, comb geometry, time-lag scan.",
+        "paths": [
+          "/hyperparameters/band_hz",
+          "/hyperparameters/comb/delta_f_hz",
+          "/hyperparameters/comb/tooth_width_hz",
+          "/hyperparameters/comb/parity",
+          "/hyperparameters/scan/dt_range",
+          "/hyperparameters/scan/dt_step"
+        ]
+      },
+      {
+        "id": "validation",
+        "title": "Validation",
+        "description": "Null tests and injection recovery knobs.",
+        "paths": [
+          "/validation/null_tests",
+          "/validation/injection/enabled",
+          "/validation/injection/snr_levels"
+        ]
+      }
+    ]
+  },
+
+  "fields": [
+    {
+      "path": "/data_scope/event",
+      "label": "Event",
+      "help": "Named event label used for reporting only.",
+      "widget": "text"
+    },
+    {
+      "path": "/data_scope/detectors",
+      "label": "Detectors",
+      "help": "Which instruments to combine.",
+      "widget": "multiselect"
+    },
+    {
+      "path": "/data_scope/gps_merger",
+      "label": "GPS merger time",
+      "units": "s",
+      "widget": "number",
+      "format": { "digits": 3, "scientific": false }
+    },
+
+    {
+      "path": "/data_scope/window/on_source_duration",
+      "label": "On-source duration",
+      "units": "s",
+      "widget": "slider",
+      "constraints": { "min": 1, "max": 256, "step": 1, "recommended": true },
+      "format": { "digits": 1 }
+    },
+    {
+      "path": "/data_scope/window/off_source_duration",
+      "label": "Off-source duration",
+      "units": "s",
+      "widget": "slider",
+      "constraints": { "min": 64, "max": 8192, "step": 64, "recommended": true },
+      "format": { "digits": 0 }
+    },
+    {
+      "path": "/data_scope/window/psd_segment_length",
+      "label": "PSD segment length",
+      "units": "s",
+      "widget": "slider",
+      "constraints": { "min": 1, "max": 64, "step": 1, "recommended": true },
+      "format": { "digits": 1 }
+    },
+
+    {
+      "path": "/hyperparameters/band_hz",
+      "label": "Search band",
+      "units": "Hz",
+      "widget": "array",
+      "help": "Two numbers: [f_min, f_max].",
+      "format": { "digits": 2 }
+    },
+
+    {
+      "path": "/hyperparameters/comb/delta_f_hz",
+      "label": "Comb spacing (Δf)",
+      "units": "Hz",
+      "widget": "slider",
+      "constraints": { "min": 0.1, "max": 50, "step": 0.01, "recommended": true },
+      "format": { "digits": 3 }
+    },
+    {
+      "path": "/hyperparameters/comb/tooth_width_hz",
+      "label": "Tooth width",
+      "units": "Hz",
+      "widget": "slider",
+      "constraints": { "min": 0.001, "max": 2.0, "step": 0.001, "recommended": true },
+      "format": { "digits": 3 }
+    },
+    {
+      "path": "/hyperparameters/comb/parity",
+      "label": "Parity",
+      "widget": "select"
+    },
+
+    {
+      "path": "/hyperparameters/scan/dt_range",
+      "label": "Δt scan range",
+      "units": "s",
+      "widget": "array",
+      "help": "Two numbers: [dt_min, dt_max].",
+      "format": { "digits": 6, "scientific": false }
+    },
+    {
+      "path": "/hyperparameters/scan/dt_step",
+      "label": "Δt step",
+      "units": "s",
+      "widget": "slider",
+      "constraints": { "min": 1e-6, "max": 1e-2, "step": 1e-6, "recommended": true },
+      "format": { "digits": 6, "scientific": true }
+    },
+
+    {
+      "path": "/validation/null_tests",
+      "label": "Null tests",
+      "widget": "array",
+      "help": "List of null-test configs; UI can provide row editor with method-specific fields.",
+      "visibility": { "advanced": true }
+    },
+
+    {
+      "path": "/validation/injection/enabled",
+      "label": "Enable injections",
+      "widget": "toggle",
+      "visibility": { "advanced": true }
+    },
+    {
+      "path": "/validation/injection/snr_levels",
+      "label": "SNR levels",
+      "widget": "array",
+      "help": "Only used if injections are enabled.",
+      "visibility": {
+        "advanced": true,
+        "show_if": [{ "path": "/validation/injection/enabled", "op": "==", "value": true }]
+      }
+    }
+  ]
+}

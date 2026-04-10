@@ -1,0 +1,93 @@
+create a ServiceAccount with RBAC permissions.
+File: darwinian_stack.yaml
+---
+# 1. The Pyro Name Server (The Central Nervous System)
+# All cells register here so the Gateway can find them.
+apiVersion: v1
+kind: Service
+metadata:
+  name: pyro-ns
+spec:
+  ports:
+    - port: 9090
+      targetPort: 9090
+  selector:
+    app: pyro-ns
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pyro-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pyro-ns
+  template:
+    metadata:
+      labels:
+        app: pyro-ns
+    spec:
+      containers:
+      - name: ns
+        image: python:3.9-slim
+        command: ["pyro5-ns", "-n", "0.0.0.0"]
+        ports:
+        - containerPort: 9090
+
+---
+# 2. Permissions (The Divine Right)
+# This Role allows the Overseer to Create/Delete/List pods.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: overseer-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: god-mode
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: overseer-binding
+subjects:
+- kind: ServiceAccount
+  name: overseer-sa
+roleRef:
+  kind: Role
+  name: god-mode
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# 3. The Overseer (The Genetic Algorithm)
+# Note: It uses the service account created above.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: overseer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: overseer
+  template:
+    metadata:
+      labels:
+        app: overseer
+    spec:
+      serviceAccountName: overseer-sa
+      containers:
+      - name: overseer
+        image: my-repo/overseer:latest  # You build this image
+        imagePullPolicy: Always
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace

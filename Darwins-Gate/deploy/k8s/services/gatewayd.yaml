@@ -1,0 +1,138 @@
+tnsr-q/QFT-engine---
+# gatewayd Deployment
+# Unified ConnectRPC gateway serving data plane (browser streaming)
+# and control plane (route mutation proposals).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gatewayd
+  namespace: darwins-gate
+  labels:
+    app: gatewayd
+    component: controlplane
+    managed-by: kustomize
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gatewayd
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: gatewayd
+        component: controlplane
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: gatewayd-sa
+      containers:
+        - name: gatewayd
+          image: tnsr-q/QFT-engined:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/gatewayd
+          ports:
+            - name: grpc
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: REDIS_ADDR
+              value: "redis-master:6379"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: bpf-maps
+              mountPath: /sys/fs/bpf/tensorq
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+      volumes:
+        - name: bpf-maps
+          hostPath:
+            path: /sys/fs/bpf/tensorq
+            type: Directory
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+---
+# gatewayd Service
+# Exposes the ConnectRPC gateway on port 8080.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gatewayd
+  namespace: darwins-gate
+  labels:
+    app: gatewayd
+    component: controlplane
+  annotations:
+    # For HTTP/2 cleartext (h2c) connections
+    cloud.google.com/app-protocols: '{"grpc":"HTTP2"}'
+spec:
+  type: ClusterIP
+  selector:
+    app: gatewayd
+  ports:
+    - name: grpc
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+# gatewayd ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gatewayd-sa
+  namespace: darwins-gate
+  labels:
+    app: gatewayd
+    managed-by: kustomize

@@ -1,0 +1,2 @@
+galois_buckets: [1,2,4,8,16]
+chi_sign_map: {neg: 'Class-A', zero: 'Class-B', pos: 'Class-C'}

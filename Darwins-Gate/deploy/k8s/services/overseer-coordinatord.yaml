@@ -1,0 +1,182 @@
+---
+# overseer-coordinatord Deployment
+# Bridge between Python Pyro5 swarm brain and Go mutation firewall.
+# Collects telemetry, submits metrics, pulls/proposes routes, reports outcomes.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: overseer-coordinatord
+  namespace: darwins-gate
+  labels:
+    app: overseer-coordinatord
+    component: controlplane
+    managed-by: kustomize
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: overseer-coordinatord
+  template:
+    metadata:
+      labels:
+        app: overseer-coordinatord
+        component: controlplane
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8888"
+        prometheus.io/path: "/v1/health"
+    spec:
+      serviceAccountName: overseer-sa
+      containers:
+        - name: overseer-coordinatord
+          image: tensorq/overseer-coordinatord:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/overseer-coordinatord
+          ports:
+            - name: bridge
+              containerPort: 8888
+              protocol: TCP
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: PYRO_NS_HOST
+              value: "pyro-ns"
+            - name: PYRO_NS_URI
+              value: "PYRO:NameServer@pyro-ns:9090"
+            - name: CELL_IMAGE
+              value: "tensorq/solver-cell:latest"
+            - name: EVOLUTION_INTERVAL
+              value: "10"
+            - name: MUTATION_RATE
+              value: "0.1"
+            - name: INITIAL_GRAVITY
+              value: "9.8"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: bridge-socket
+              mountPath: /var/run/tensorq
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: 8888
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /v1/health
+              port: 8888
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+      volumes:
+        - name: bridge-socket
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Mi
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+---
+# overseer-coordinatord Service
+# Exposes the bridge API for swarm communication.
+apiVersion: v1
+kind: Service
+metadata:
+  name: overseer-coordinatord
+  namespace: darwins-gate
+  labels:
+    app: overseer-coordinatord
+    component: controlplane
+spec:
+  type: ClusterIP
+  selector:
+    app: overseer-coordinatord
+  ports:
+    - name: bridge
+      port: 8888
+      targetPort: 8888
+      protocol: TCP
+---
+# overseer-sa ServiceAccount
+# Requires RBAC to manage solver-cell pods.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: overseer-sa
+  namespace: darwins-gate
+  labels:
+    app: overseer-coordinatord
+    managed-by: kustomize
+---
+# overseer-sa Role
+# Grants permissions to manage solver-cell pods.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: overseer-role
+  namespace: darwins-gate
+  labels:
+    app: overseer-coordinatord
+    managed-by: kustomize
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/status"]
+    verbs: ["get", "watch"]
+---
+# overseer-sa RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: overseer-rolebinding
+  namespace: darwins-gate
+  labels:
+    app: overseer-coordinatord
+    managed-by: kustomize
+subjects:
+  - kind: ServiceAccount
+    name: overseer-sa
+    namespace: darwins-gate
+roleRef:
+  kind: Role
+  name: overseer-role
+  apiGroup: rbac.authorization.k8s.io

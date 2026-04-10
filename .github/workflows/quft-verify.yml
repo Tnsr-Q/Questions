@@ -1,0 +1,83 @@
+name: QUFT Verify
+
+on:
+  push:
+  pull_request:
+name: QUFT Verification Suite
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1' # Weekly full run
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install base dependencies
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Bootstrap & JAX Hessian Tests
+        run: |
+          pytest tests/test_bootstrap_jax.py -v --junitxml=results_bootstrap.xml
+          pytest tests/test_regression.py tests/test_nonperturbative_unitarity.py -v --junitxml=results_opt.xml
+      - name: Run RGE & Stability Tests
+        run: |
+          if [ -f tests/test_rge_solver.py ] && [ -f tests/test_spectral_rep.py ]; then
+            pytest tests/test_rge_solver.py tests/test_spectral_rep.py -v --junitxml=results_rge.xml
+          else
+            echo "Skipping RGE & Stability Tests: tests/test_rge_solver.py and/or tests/test_spectral_rep.py not found."
+          fi
+
+      - name: Run Optimizer & Hessian Tests
+        run: |
+          if [ -f tests/test_optimizer.py ] && [ -f tests/test_lyapunov.py ]; then
+            pytest tests/test_optimizer.py tests/test_lyapunov.py -v --junitxml=results_opt.xml
+          else
+            echo "Skipping Optimizer & Hessian Tests: tests/test_optimizer.py and/or tests/test_lyapunov.py not found."
+          fi
+
+      - name: Upload Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quft-verify-results-${{ matrix.python-version }}
+          if-no-files-found: warn
+          path: |
+            results_*.xml
+            logs/
+
+      - name: Trigger GCE Deployment (Optional)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "Deploying to GCE free tier..."
+          chmod +x scripts/deploy_gce.sh
+          ./scripts/deploy_gce.sh
+        env:
+          GCLOUD_PROJECT: ${{ secrets.GCLOUD_PROJECT }}
+          GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH }}

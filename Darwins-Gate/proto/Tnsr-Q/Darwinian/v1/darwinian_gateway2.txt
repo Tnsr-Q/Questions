@@ -1,0 +1,142 @@
+
+This is a unified Proto definition that merges your Code Streaming requirements with the Darwinian eBPF Control Plane.
+This file defines the contract for your Gateway Node. It serves two masters:
+ * The Browser (Frontend): Consumes the tnsr-q/qft-enginehigh-speed StreamSimulation (Code-on-the-Fly).
+ * The Overseer (Genetic Algorithm): Consumes the UpdateAlphaRoute to reprogram the Linux Kernel (eBPF maps) dynamically.
+The Proto Definition: darwinian_gateway.proto
+syntax = "proto3";
+
+package tensorq.darwinian.v1;
+
+option go_package = "github.com/tnsr-q/qft-engine/gen/go/darwinianv1";
+
+// The CortexGateway is the unified entry point for your "Darwinian Grid".
+// It handles both the generation of physics logic (Data Plane) and 
+// the mutation of network topology (Control Plane).
+service CortexGateway {
+  
+  // -----------------------------------------------------------------------
+  // 1. THE DATA PLANE (Code-on-the-Fly)
+  // -----------------------------------------------------------------------
+  // Streams generated Python logic over HTTP/3 to the browser (Pyodide).
+  // This utilizes the "ConnectRPC" pipeline for zero-latency loading.
+  rpc StreamSimulation(SimRequest) returns (stream CodeChunk);
+
+  // -----------------------------------------------------------------------
+  // 2. THE CONTROL PLANE (Kernel-Level Telepathy)
+  // -----------------------------------------------------------------------
+  // Called by your Genetic Algorithm (The Overseer) when a new "Alpha" wins.
+  // This RPC triggers the C/eBPF loader to update the Kernel Hash Map.
+  // It effectively says: "Traffic for VIP X now goes to Pod Y at MAC Z."
+  rpc UpdateAlphaRoute(RouteMutation) returns (RouteAck);
+}
+
+// =========================================================================
+// DATA PLANE MESSAGES (The Generator)
+// =========================================================================
+
+message SimRequest {
+  // e.g., "black_hole_merger_v4"
+  string model_id = 1;
+
+  // Dynamic physics parameters injected into the Python template.
+  // e.g., {"gravity": "10.5", "viscosity": "0.01"}
+  map<string, string> hyper_parameters = 2;
+
+  // The client's preferred chunk size hint (optional optimization).
+  int32 chunk_size_hint = 3;
+}
+
+message CodeChunk {
+  // The raw Python code fragment.
+  string content = 1;
+
+  // Hints for the Pyodide runtime to optimize execution.
+  ChunkType type = 2;
+
+  // Sequence ID to handle UDP/QUIC out-of-order reassembly (if doing manual assembly).
+  uint64 sequence_id = 3;
+}
+
+enum ChunkType {
+  CHUNK_TYPE_UNSPECIFIED = 0;
+  
+  // Safe to run immediately (e.g., "import numpy as np"). 
+  // Browser runs this while waiting for the rest of the stream.
+  CHUNK_TYPE_PREAMBLE = 1; 
+
+  // Function definitions or heavy math logic. 
+  // Buffer these in JS memory; do not execute yet.
+  CHUNK_TYPE_DEFINITION = 2; 
+
+  // The trigger command (e.g., "run_simulation()"). 
+  // Tells Pyodide to execute the buffered logic.
+  CHUNK_TYPE_EXECUTION = 3;
+}
+
+// =========================================================================
+// CONTROL PLANE MESSAGES (The eBPF Router)
+// =========================================================================
+
+message RouteMutation {
+  // The Virtual IP your Go app blindly sends to (e.g., "10.0.0.99").
+  // This is the Key in your BPF_MAP_TYPE_HASH.
+  string virtual_ip = 1;
+
+  // The Real IP of the winning Alpha Pod (e.g., "10.244.0.5").
+  // This is the Value injected into the IP Header.
+  string target_pod_ip = 2;
+
+  // CRITICAL: The L2 Resolver (The "Hard Part").
+  // The MAC address of the node hosting the Alpha Pod.
+  // e.g., "00:1A:2B:3C:4D:5E". 
+  // The eBPF hook must rewrite eth->h_dest to this value to avoid switch drops.
+  string target_mac_address = 3;
+}
+
+message RouteAck {
+  bool success = 1;
+  
+  // Debug info from the Kernel Verifier or Map Update result.
+  string kernel_message = 2; 
+  
+  // Timestamp of when the map update was committed to the kernel.
+  int64 applied_at_unix_ns = 3;
+}
+
+How this Proto drives your Architecture
+You now have a single interface that connects your high-level Physics logic with your low-level Kernel logic.
+1. The "Code Streamer" Implementation (Go Backend)
+When you implement StreamSimulation, you use the ChunkType enum to hide latency.
+ * Logic:
+   * User requests SimRequest.
+   * Server immediately flushes CHUNK_TYPE_PREAMBLE ("import numpy...").
+   * Frontend receives this via ConnectRPC and runs pyodide.runPython(chunk) while the backend is still calculating the math for the next chunk.
+   * Server computes complex math, streams CHUNK_TYPE_DEFINITION.
+   * Server finishes, sends CHUNK_TYPE_EXECUTION.
+ * Benefit: The browser environment is "warmed up" and ready the exact millisecond the heavy logic arrives.
+2. The "Kernel Telepathy" Implementation (Go Backend)
+When you implement UpdateAlphaRoute, you bridge the gap between Go (User Space) and C (Kernel Space).
+ * Logic:
+   * Your Genetic Algorithm (overseer) determines Pod B is 20% faster than Pod A.
+   * Overseer calls client.UpdateAlphaRoute({virtual: "10.99", target: "10.5", mac: "AA:BB..."}).
+   * Your Go Server implementation parses this proto.
+   * The Bridge: It uses the cilium/ebpf Go library to load the map:
+     // Go Implementation Snippet
+func (s *Server) UpdateAlphaRoute(ctx context.Context, req *pb.RouteMutation) (*pb.RouteAck, error) {
+    // 1. Convert IP/MAC strings to uint32/bytes
+    vip := ParseIP(req.VirtualIp)
+    realIp := ParseIP(req.TargetPodIp)
+    mac := ParseMAC(req.TargetMacAddress)
+
+    // 2. Open the BPF Map (pinned by your C loader)
+    routeMap, _ := ebpf.LoadPinnedMap("/sys/fs/bpf/tc/globals/routing_map", nil)
+
+    // 3. Update the Map (Atomic Kernel Operation)
+    // This struct matches your C code struct exactly
+    entry := &RouteEntry{ IP: realIp, MAC: mac }
+    err := routeMap.Update(vip, entry, ebpf.UpdateAny)
+
+    return &pb.RouteAck{Success: true}, nil
+}
+
