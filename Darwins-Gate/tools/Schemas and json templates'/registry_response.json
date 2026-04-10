@@ -1,7 +1,4 @@
 
-registry/example_list_response.json (what the registry returns)
-
-
 {
   "registry_version": "ric.kernel_registry.v1",
   "kernels": [
