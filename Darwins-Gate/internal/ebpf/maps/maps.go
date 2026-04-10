@@ -1,5 +1,4 @@
 // Package maps provides helpers for reading and writing pinned eBPF maps
-// used by the TensorQ routing data plane.
 package maps
 
 import (
@@ -12,9 +11,9 @@ import (
 
 const (
 	// DefaultRoutingPath is the default bpffs pin path for the routing map.
-	DefaultRoutingPath = "/sys/fs/bpf/tensorq/routing_map"
+	DefaultRoutingPath = "/sys/fs/bpf/questions/routing_map"
 	// DefaultStatsPath is the default bpffs pin path for the stats map.
-	DefaultStatsPath = "/sys/fs/bpf/tensorq/stats_map"
+	DefaultStatsPath = "/sys/fs/bpf/questions/stats_map"
 )
 
 // PinnedMaps holds references to the pinned eBPF maps.
