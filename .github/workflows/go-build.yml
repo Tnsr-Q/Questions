@@ -1,0 +1,46 @@
+name: Go Build
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'Darwins-Gate/go.mod'
+      - 'Darwins-Gate/go.sum'
+      - 'Darwins-Gate/go.work'
+      - 'Darwins-Gate/go.work.sum'
+      - 'Darwins-Gate/**/*.go'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'Darwins-Gate/go.mod'
+      - 'Darwins-Gate/go.sum'
+      - 'Darwins-Gate/go.work'
+      - 'Darwins-Gate/go.work.sum'
+      - 'Darwins-Gate/**/*.go'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+
+jobs:
+  go-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Darwins-Gate
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: Darwins-Gate/go.mod
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./...
