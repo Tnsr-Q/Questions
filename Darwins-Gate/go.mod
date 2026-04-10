@@ -1,4 +1,4 @@
-module github.com/tnsr-q/Questions
+module github.com/tnsr-q/Questions/Darwins-Gate
 
 go 1.23.0
 
