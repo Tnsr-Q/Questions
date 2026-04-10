@@ -1,0 +1,49 @@
+name: Go Mod Tidy
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'Darwins-Gate/go.mod'
+      - 'Darwins-Gate/go.sum'
+      - 'Darwins-Gate/go.work'
+      - 'Darwins-Gate/go.work.sum'
+      - 'Darwins-Gate/**/*.go'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'Darwins-Gate/go.mod'
+      - 'Darwins-Gate/go.sum'
+      - 'Darwins-Gate/go.work'
+      - 'Darwins-Gate/go.work.sum'
+      - 'Darwins-Gate/**/*.go'
+
+permissions:
+  contents: read
+
+jobs:
+  go-mod-tidy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Darwins-Gate
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: Darwins-Gate/go.mod
+
+      - name: Run go mod tidy
+        run: go mod tidy
+
+      - name: Check for changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::go mod tidy produced changes. Please run 'go mod tidy' locally and commit the result."
+            git diff
+            exit 1
+          fi
+          echo "go.mod and go.sum are tidy."
