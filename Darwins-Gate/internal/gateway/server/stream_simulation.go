@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
-	pb "github.com/tnsr-q/QFT-engine/gen/go/darwinianv1"
-	"github.com/tnsr-q/QFT-engine/internal/gateway/stream"
-	"github.com/tnsr-q/QFT-engine/internal/obs/metrics"
-	"github.com/tnsr-q/QFT-engine/internal/obs/tracing"
+	pb "github.com/tnsr-q/Questions/gen/go/darwinianv1"
+	"github.com/tnsr-q/Questions/internal/gateway/stream"
+	"github.com/tnsr-q/Questions/internal/obs/metrics"
+	"github.com/tnsr-q/Questions/internal/obs/tracing"
 )
 
 type StreamServer struct {
@@ -34,7 +34,7 @@ func (s *StreamServer) StreamSimulation(
 	req *connect.Request[pb.SimRequest],
 	streamer *connect.ServerStream[pb.CodeChunk],
 ) error {
-	_ = tracing.NewID() // keep for future correlation/log injection
+	_ = tracing.NewTraceID() // keep for future correlation/log injection
 	s.metrics.IncSessionsStarted()
 
 	built, err := s.streamSvc.Build(ctx, stream.BuildInput{

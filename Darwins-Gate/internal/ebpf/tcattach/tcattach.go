@@ -10,7 +10,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
-	"github.com/tnsr-q/QFT-Engine/internal/ebpf/objects"
+	"github.com/tnsr-q/Questions/internal/ebpf/objects"
 )
 
 const DefaultPinRoot = "/sys/fs/bpf/tensorq"
