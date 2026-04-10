@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/tnsr-q/QFT-Engine/internal/ebpf/maps"
+	"github.com/tnsr-q/Questions/internal/ebpf/maps"
 )
 
 func main() {

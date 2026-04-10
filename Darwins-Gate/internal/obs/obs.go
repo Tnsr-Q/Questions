@@ -7,9 +7,9 @@
 //
 // Usage:
 //
-//	import "github.com/tnsr-q/QFT-Engine/internal/obs"
-//	import "github.com/tnsr-q/QFT-Engine/internal/obs/tracing"
-//	import "github.com/tnsr-q/QFT-Engine/internal/obs/metrics"
+//	import "github.com/tnsr-q/Questions/internal/obs"
+//	import "github.com/tnsr-q/Questions/internal/obs/tracing"
+//	import "github.com/tnsr-q/Questions/internal/obs/metrics"
 //
 //	// Generate unique IDs
 //	mutationID := tracing.NewTraceID()
@@ -22,8 +22,8 @@
 package obs
 
 import (
-	"github.com/tnsr-q/QFT-Engine/internal/obs/metrics"
-	"github.com/tnsr-q/QFT-Engine/internal/obs/tracing"
+	"github.com/tnsr-q/Questions/internal/obs/metrics"
+	"github.com/tnsr-q/Questions/internal/obs/tracing"
 )
 
 // Re-export for convenience at the top level.

@@ -4,7 +4,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/tnsr-q/QFT-Engine/internal/ebpf/runtime"
+	"github.com/tnsr-q/Questions/internal/ebpf/runtime"
 )
 
 func main() {
