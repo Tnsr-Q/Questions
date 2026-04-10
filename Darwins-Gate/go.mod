@@ -1,6 +1,6 @@
 module github.com/tnsr-q/QFT-Engine
 
-go 1.23.0
+go 1.23
 
 toolchain go1.24.13
 
