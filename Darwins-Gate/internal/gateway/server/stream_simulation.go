@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
-	pb "github.com/tnsr-q/QFT-engine/gen/go/darwinianv1"
-	"github.com/tnsr-q/QFT-engine/internal/gateway/stream"
-	"github.com/tnsr-q/QFT-engine/internal/obs/metrics"
-	"github.com/tnsr-q/QFT-engine/internal/obs/tracing"
+	pb "github.com/tnsr-q/Questions/gen/go/darwinianv1"
+	"github.com/tnsr-q/Questions/internal/gateway/stream"
+	"github.com/tnsr-q/Questions/internal/obs/metrics"
+	"github.com/tnsr-q/Questions/internal/obs/tracing"
 )
 
 type StreamServer struct {

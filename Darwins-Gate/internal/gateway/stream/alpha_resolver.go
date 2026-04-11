@@ -2,8 +2,8 @@ package stream
 
 import (
 	"context"
-	"github.com/tnsr-q/QFT-engine/internal/swarmbridge/client"
-	pb "github.com/tnsr-q/QFT-engine/gen/go/darwinianv1"
+	"github.com/tnsr-q/Questions/internal/swarmbridge/client"
+	pb "github.com/tnsr-q/Questions/gen/go/darwinianv1"
 )
 
 type AlphaResolver struct{ bridge *client.Client }

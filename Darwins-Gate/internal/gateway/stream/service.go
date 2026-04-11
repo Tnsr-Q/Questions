@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	pb "github.com/tnsr-q/qft-engine/gen/go/darwinianv1"
+	pb "github.com/tnsr-q/Questions/gen/go/darwinianv1"
 )
 
 type Service struct {
