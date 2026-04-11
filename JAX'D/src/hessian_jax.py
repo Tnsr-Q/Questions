@@ -62,53 +62,61 @@ class JAXHessianEstimator:
         v = jax.random.normal(jax.random.PRNGKey(42), (dim,))
         v = v / (jnp.linalg.norm(v) + 1e-12)
 
-        alphas = []
-        betas = []
+        # Pre-allocate arrays instead of using Python lists
         tol_eff = self._ledger_tol(tol)
         base_k = max(min_k, k)
         max_k = min(max_iter, max(base_k, dim))
+        alphas = jnp.zeros(max_k, dtype=theta.dtype)
+        betas = jnp.zeros(max_k, dtype=theta.dtype)
+        idx = 0
         eig_prev: jnp.ndarray | None = None
 
         for _ in range(base_k):
             hv = self.hessian_vector_product(theta, v)
             alpha = jnp.nan_to_num(jnp.dot(hv, v), nan=0.0)
             w = hv - alpha * v
-            if betas:
-                w = w - betas[-1] * v_prev
+            if idx > 0:
+                w = w - betas[idx - 1] * v_prev
             beta = jnp.nan_to_num(jnp.linalg.norm(w), nan=0.0)
 
-            alphas.append(alpha)
+            alphas = alphas.at[idx].set(alpha)
             if float(beta) <= tol_eff:
+                idx += 1
                 break
-            betas.append(beta)
+            betas = betas.at[idx].set(beta)
+            idx += 1
             v_prev, v = v, w / (beta + 1e-12)
 
-        def _eig_from_tridiag() -> jnp.ndarray:
-            m = len(alphas)
+        def _eig_from_tridiag(m: int) -> jnp.ndarray:
+            # Vectorized tridiagonal matrix construction
+            diag_indices = jnp.arange(m)
+            off_diag_indices = jnp.arange(m - 1)
+
             t = jnp.zeros((m, m), dtype=theta.dtype)
-            for i in range(m):
-                t = t.at[i, i].set(alphas[i])
-                if i < len(betas):
-                    t = t.at[i, i + 1].set(betas[i])
-                    t = t.at[i + 1, i].set(betas[i])
+            t = t.at[diag_indices, diag_indices].set(alphas[:m])
+            t = t.at[off_diag_indices, off_diag_indices + 1].set(betas[:m-1])
+            t = t.at[off_diag_indices + 1, off_diag_indices].set(betas[:m-1])
+
             eigs = jnp.sort(jnp.linalg.eigvalsh(t))
             return jnp.nan_to_num(eigs, nan=self.Lambda, posinf=1e6, neginf=-1e6)
 
-        eigvals = _eig_from_tridiag()
+        eigvals = _eig_from_tridiag(idx)
         eig_prev = eigvals
 
         if adaptive_k:
-            while len(alphas) < max_k:
+            while idx < max_k:
                 hv = self.hessian_vector_product(theta, v)
                 alpha = jnp.nan_to_num(jnp.dot(hv, v), nan=0.0)
-                w = hv - alpha * v - (betas[-1] * v_prev if betas else 0.0)
+                w = hv - alpha * v - (betas[idx - 1] * v_prev if idx > 0 else 0.0)
                 beta = jnp.nan_to_num(jnp.linalg.norm(w), nan=0.0)
-                alphas.append(alpha)
+                alphas = alphas.at[idx].set(alpha)
                 if float(beta) <= tol_eff:
+                    idx += 1
                     break
-                betas.append(beta)
+                betas = betas.at[idx].set(beta)
+                idx += 1
 
-                eigvals = _eig_from_tridiag()
+                eigvals = _eig_from_tridiag(idx)
                 n_cmp = min(int(eigvals.shape[0]), int(eig_prev.shape[0]), base_k)
                 drift = jnp.max(jnp.abs(eigvals[:n_cmp] - eig_prev[:n_cmp]))
                 eig_prev = eigvals
