@@ -50,7 +50,7 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 	msg := req.Msg
 	obsID := tracing.NewTraceID()
 
-	metrics.EBPFMapMetrics.IncMutationsReceived()
+	metrics.EBPFMapMetricsInstance.IncMutationsReceived()
 
 	ack := &pb.RouteAck{
 		ObservabilityId: obsID,
@@ -60,7 +60,7 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 
 	// Dry-run support
 	if msg.DryRun {
-		metrics.EBPFMapMetrics.IncDryRuns()
+		metrics.EBPFMapMetricsInstance.IncDryRuns()
 		ack.Status = pb.RouteStatus_ROUTE_STATUS_STAGED
 		ack.StatusMessage = "Dry-run: mutation validated but not applied"
 		ack.ChecksPassed = append(ack.ChecksPassed, "dry_run_validation")
@@ -73,7 +73,7 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 	macAddr, err3 := net.ParseMAC(msg.TargetMacAddress)
 
 	if err != nil || err2 != nil || err3 != nil {
-		metrics.EBPFMapMetrics.IncMutationsRejected()
+		metrics.EBPFMapMetricsInstance.IncMutationsRejected()
 		ack.Status = pb.RouteStatus_ROUTE_STATUS_REJECTED
 		ack.StatusMessage = "Admission rejected: Malformed Network Inputs"
 		return connect.NewResponse(ack), nil
@@ -83,7 +83,7 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 	if msg.TtlMs > 0 {
 		proposalAge := time.Now().UnixMilli() - int64(msg.Epoch)
 		if proposalAge > int64(msg.TtlMs) {
-			metrics.EBPFMapMetrics.IncMutationsRejected()
+			metrics.EBPFMapMetricsInstance.IncMutationsRejected()
 			ack.Status = pb.RouteStatus_ROUTE_STATUS_REJECTED
 			ack.StatusMessage = fmt.Sprintf("Proposal expired: age=%dms > ttl=%dms", proposalAge, msg.TtlMs)
 			return connect.NewResponse(ack), nil
@@ -104,7 +104,7 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 
 	// Atomic Kernel eBPF Map Swap
 	if g.routingMap == nil {
-		metrics.EBPFMapMetrics.IncMutationsFailed()
+		metrics.EBPFMapMetricsInstance.IncMutationsFailed()
 		ack.Status = pb.RouteStatus_ROUTE_STATUS_REJECTED
 		ack.StatusMessage = "Kernel fault: eBPF map not loaded (not in privileged mode)"
 		return connect.NewResponse(ack), nil
@@ -113,15 +113,15 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 	ack.ChecksPassed = append(ack.ChecksPassed, "input_validation", "ttl_check", "map_access")
 
 	if err := g.routingMap.Update(vipKey, entry, ebpf.UpdateAny); err != nil {
-		metrics.EBPFMapMetrics.IncMutationsFailed()
-		metrics.EBPFMapMetrics.IncMapUpdateErrors()
+		metrics.EBPFMapMetricsInstance.IncMutationsFailed()
+		metrics.EBPFMapMetricsInstance.IncMapUpdateErrors()
 		ack.Status = pb.RouteStatus_ROUTE_STATUS_PROBE_FAILED
 		ack.StatusMessage = fmt.Sprintf("Kernel fault: %v", err)
 		ack.ChecksFailed = append(ack.ChecksFailed, "map_update")
 		return connect.NewResponse(ack), nil
 	}
 
-	metrics.EBPFMapMetrics.IncMutationsApplied()
+	metrics.EBPFMapMetricsInstance.IncMutationsApplied()
 	ack.Status = pb.RouteStatus_ROUTE_STATUS_APPLIED
 	ack.StatusMessage = "eBPF Route Alpha Active"
 	ack.AppliedAtUnixNs = time.Now().UnixNano()
@@ -166,9 +166,9 @@ func (g *UnifiedGateway) reportOutcome(obsID, vip string, ack *pb.RouteAck) {
 
 	if _, err := g.bridge.PostOutcome(ctx, outcome); err != nil {
 		log.Printf("WARN: failed to report outcome %s: %v", obsID, err)
-		metrics.SwarmMetrics.IncOutcomeErrors()
+		metrics.SwarmMetricsInstance.IncOutcomeErrors()
 	} else {
-		metrics.SwarmMetrics.IncOutcomesReported()
+		metrics.SwarmMetricsInstance.IncOutcomesReported()
 	}
 }
 
@@ -181,8 +181,8 @@ func (g *UnifiedGateway) StreamSimulation(
 	stream *connect.ServerStream[pb.CodeChunk],
 ) error {
 	modelID := req.Msg.ModelId
-	metrics.GatewayMetrics.IncSessionsStarted()
-	defer metrics.GatewayMetrics.DecSessionsActive()
+	metrics.GatewayStreamMetrics.IncSessionsStarted()
+	defer metrics.GatewayStreamMetrics.DecSessionsActive()
 
 	log.Printf("Frontend requested stream for Alpha model: %s", modelID)
 
@@ -193,11 +193,11 @@ func (g *UnifiedGateway) StreamSimulation(
 		SequenceId: 1,
 	}
 	if err := stream.Send(preamble); err != nil {
-		metrics.GatewayMetrics.IncSessionsFailed()
+		metrics.GatewayStreamMetrics.IncSessionsFailed()
 		return err
 	}
-	metrics.GatewayMetrics.AddChunksEmitted(1)
-	metrics.GatewayMetrics.AddBytesEmitted(len(preamble.Content))
+	metrics.GatewayStreamMetrics.AddChunksEmitted(1)
+	metrics.GatewayStreamMetrics.AddBytesEmitted(len(preamble.Content))
 
 	// Chunk 2: Execution — triggers Pyodide to run accumulated buffer
 	execChunk := &pb.CodeChunk{
@@ -206,11 +206,11 @@ func (g *UnifiedGateway) StreamSimulation(
 		SequenceId: 2,
 	}
 	if err := stream.Send(execChunk); err != nil {
-		metrics.GatewayMetrics.IncSessionsFailed()
+		metrics.GatewayStreamMetrics.IncSessionsFailed()
 		return err
 	}
-	metrics.GatewayMetrics.AddChunksEmitted(1)
-	metrics.GatewayMetrics.AddBytesEmitted(len(execChunk.Content))
+	metrics.GatewayStreamMetrics.AddChunksEmitted(1)
+	metrics.GatewayStreamMetrics.AddBytesEmitted(len(execChunk.Content))
 
 	return nil
 }

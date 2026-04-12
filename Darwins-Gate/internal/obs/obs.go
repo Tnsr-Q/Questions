@@ -34,9 +34,9 @@ var (
 
 // Global metric instances — safe for concurrent use from all goroutines.
 var (
-	GatewayMetrics = metrics.GatewayMetrics
-	EBPFMapMetrics = metrics.EBPFMapMetrics
-	SwarmMetrics   = metrics.SwarmMetrics
+	GatewayMetrics = metrics.GatewayStreamMetrics
+	EBPFMapMetrics = metrics.EBPFMapMetricsInstance
+	SwarmMetrics   = metrics.SwarmMetricsInstance
 )
 
 // DefaultCollector returns a Collector wired to the global metric singletons.
