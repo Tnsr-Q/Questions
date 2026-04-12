@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
@@ -50,7 +51,7 @@ func ensureClsact(link netlink.Link) error {
 	}
 
 	if err := netlink.QdiscAdd(qdisc); err != nil {
-		if !errors.Is(err, netlink.ErrExist) {
+		if !errors.Is(err, syscall.EEXIST) {
 			return fmt.Errorf("add clsact qdisc: %w", err)
 		}
 	}

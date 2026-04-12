@@ -78,7 +78,12 @@ func LoadRouterTCObjects(objs *RouterTCObjects, opts *ebpf.CollectionOptions) er
 		return err
 	}
 
-	coll, err := ebpf.NewCollectionWithOptions(specs.toCollectionSpec(), opts)
+	var coll *ebpf.Collection
+	if opts != nil {
+		coll, err = ebpf.NewCollectionWithOptions(specs.toCollectionSpec(), *opts)
+	} else {
+		coll, err = ebpf.NewCollection(specs.toCollectionSpec())
+	}
 	if err != nil {
 		return fmt.Errorf("can't load eBPF collection: %w", err)
 	}

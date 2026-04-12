@@ -1,6 +1,10 @@
-package resolver
+package cache
 
-import "context"
+import (
+	"context"
+
+	"github.com/tnsr-q/Questions/internal/resolver"
+)
 
 type Noop struct{}
 
@@ -8,14 +12,14 @@ func NewNoop() *Noop {
 	return &Noop{}
 }
 
-func (n *Noop) Resolve(ctx context.Context, targetIP string, macHint string) (Resolution, error) {
+func (n *Noop) Resolve(ctx context.Context, targetIP string, macHint string) (resolver.Resolution, error) {
 	if macHint != "" {
-		return Resolution{
+		return resolver.Resolution{
 			NextHopMAC: macHint,
 			Resolved:   true,
 		}, nil
 	}
-	return Resolution{
+	return resolver.Resolution{
 		Resolved: false,
 	}, nil
 }

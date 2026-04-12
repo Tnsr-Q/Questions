@@ -454,6 +454,18 @@ func (c *Client) IsLeaderLeaseValid() bool {
 	return time.Now().Before(leaseExpiry)
 }
 
+// GetConsensus fetches the current consensus decision from the Python overseer.
+// TODO: Implement actual consensus fetching from the bridge sidecar.
+func (c *Client) GetConsensus(ctx context.Context) (string, error) {
+	return "", fmt.Errorf("GetConsensus not yet implemented")
+}
+
+// CallSolvePhysics invokes the JAX QFT-Engine for physics model solving.
+// TODO: Implement actual RPC to JAX QFT-Engine via the bridge sidecar.
+func (c *Client) CallSolvePhysics(alphaURI string, modelID string) (string, error) {
+	return "", fmt.Errorf("CallSolvePhysics not yet implemented")
+}
+
 // ── HTTP Helper ────────────────────────────────────────────────────────────
 
 func (c *Client) doJSON(ctx context.Context, method, path string, body, result interface{}, timeout time.Duration) error {

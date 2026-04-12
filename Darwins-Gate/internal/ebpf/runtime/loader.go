@@ -225,7 +225,7 @@ func ensureClsact(link netlink.Link) error {
 	}
 
 	if err := netlink.QdiscAdd(qdisc); err != nil {
-		if !errors.Is(err, netlink.ErrExist) {
+		if !errors.Is(err, syscall.EEXIST) {
 			return fmt.Errorf("add clsact qdisc: %w", err)
 		}
 	}
