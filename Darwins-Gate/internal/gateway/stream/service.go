@@ -18,11 +18,12 @@ func NewService(templates map[string]ModelTemplate) *Service {
 	return &Service{templates: templates}
 }
 
-func (s *Service) Build(...) (*BuiltStream, error) {
-+	alphaResolver := NewAlphaResolver(s.bridge) // inject in NewService
-+	chunk, err := alphaResolver.GetAlpha(ctx, in.ModelID)
-+	if err != nil { return nil, err }
-+	return &BuiltStream{Chunks: []*pb.CodeChunk{chunk}}, nil
+func (s *Service) Build(ctx context.Context, in BuildInput) (*BuiltStream, error) {
+	tpl, ok := s.templates[in.ModelID]
+	if !ok {
+		return nil, fmt.Errorf("unknown model %q", in.ModelID)
+	}
+	_ = normalizeChunkSizeHint(in.ChunkSizeHint)
 
 	seq := uint64(1)
 	chunks := make([]*pb.CodeChunk, 0, 3)

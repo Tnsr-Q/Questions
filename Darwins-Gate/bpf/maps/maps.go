@@ -7,13 +7,12 @@ import (
 
 	"github.com/cilium/ebpf"
 
-	"tensorq-darwinian-gateway/internal/ebpf/types"
-)
+	"darwinian-gate/internal/ebpf/types")
 
 const (
 	DefaultBPFFSRoot   = "/sys/fs/bpf"
-	DefaultRoutingPath = "/sys/fs/bpf/tensorq/routing_map"
-	DefaultStatsPath   = "/sys/fs/bpf/tensorq/stats_map"
+	DefaultRoutingPath = "/sys/fs/bpf/routing_map"
+	DefaultStatsPath   = "/sys/fs/bpf/stats_map"
 )
 
 type RouteMaps struct {

@@ -34,7 +34,7 @@ func (s *StreamServer) StreamSimulation(
 	req *connect.Request[pb.SimRequest],
 	streamer *connect.ServerStream[pb.CodeChunk],
 ) error {
-	_ = tracing.NewID() // keep for future correlation/log injection
+	_ = tracing.NewTraceID() // keep for future correlation/log injection
 	s.metrics.IncSessionsStarted()
 
 	built, err := s.streamSvc.Build(ctx, stream.BuildInput{
