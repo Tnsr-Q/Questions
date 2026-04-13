@@ -66,11 +66,13 @@ func Run(stdin io.Reader, stdout io.Writer) error {
 // RunFromOS is a convenience wrapper that uses os.Stdin and os.Stdout.
 func RunFromOS() {
 	if err := Run(os.Stdin, os.Stdout); err != nil {
+		fmt.Fprintf(os.Stderr, "protoc-gen-doc: %v\n", err)
 		errMsg := err.Error()
 		var resp pluginpb.CodeGeneratorResponse
 		resp.Error = &errMsg
-		out, _ := proto.Marshal(&resp)
-		os.Stdout.Write(out) //nolint:errcheck
+		if out, mErr := proto.Marshal(&resp); mErr == nil {
+			os.Stdout.Write(out) //nolint:errcheck
+		}
 		os.Exit(1)
 	}
 }

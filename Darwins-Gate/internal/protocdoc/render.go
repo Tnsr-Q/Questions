@@ -58,7 +58,10 @@ func renderHTML(w io.Writer, files []ProtoFile) error {
 	if err != nil {
 		return fmt.Errorf("parsing html template: %w", err)
 	}
-	return t.Execute(w, files)
+	if err := t.Execute(w, files); err != nil {
+		return fmt.Errorf("executing html template: %w", err)
+	}
+	return nil
 }
 
 // renderMarkdown writes the documentation as Markdown.
@@ -67,7 +70,10 @@ func renderMarkdown(w io.Writer, files []ProtoFile) error {
 	if err != nil {
 		return fmt.Errorf("parsing markdown template: %w", err)
 	}
-	return t.Execute(w, files)
+	if err := t.Execute(w, files); err != nil {
+		return fmt.Errorf("executing markdown template: %w", err)
+	}
+	return nil
 }
 
 var mdFuncs = template.FuncMap{
