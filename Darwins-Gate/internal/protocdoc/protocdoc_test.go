@@ -52,10 +52,39 @@ func testFileDescriptor() *descriptorpb.FileDescriptorProto {
 				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 			},
 			{
+				Name:     proto.String("hyper_parameters"),
+				Number:   proto.Int32(2),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				TypeName: proto.String(".tensorq.darwinian.v1.SimRequest.HyperParametersEntry"),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+			},
+			{
 				Name:   proto.String("chunk_size_hint"),
 				Number: proto.Int32(3),
 				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
 				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+		},
+		NestedType: []*descriptorpb.DescriptorProto{
+			{
+				Name: proto.String("HyperParametersEntry"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					{
+						Name:   proto.String("key"),
+						Number: proto.Int32(1),
+						Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+						Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+					},
+					{
+						Name:   proto.String("value"),
+						Number: proto.Int32(2),
+						Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+						Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+					},
+				},
+				Options: &descriptorpb.MessageOptions{
+					MapEntry: proto.Bool(true),
+				},
 			},
 		},
 	}
@@ -217,8 +246,20 @@ func TestParseFile(t *testing.T) {
 	if pf.Messages[0].Name != "SimRequest" {
 		t.Errorf("Messages[0].Name = %q, want SimRequest", pf.Messages[0].Name)
 	}
-	if len(pf.Messages[0].Fields) != 2 {
-		t.Fatalf("SimRequest fields count = %d, want 2", len(pf.Messages[0].Fields))
+	if len(pf.Messages[0].Fields) != 3 {
+		t.Fatalf("SimRequest fields count = %d, want 3", len(pf.Messages[0].Fields))
+	}
+
+	// Verify map field detection.
+	hyperParams := pf.Messages[0].Fields[1]
+	if hyperParams.Name != "hyper_parameters" {
+		t.Errorf("SimRequest.Fields[1].Name = %q, want hyper_parameters", hyperParams.Name)
+	}
+	if !hyperParams.IsMap {
+		t.Error("hyper_parameters should be detected as a map field")
+	}
+	if hyperParams.Type != "map<string, string>" {
+		t.Errorf("hyper_parameters.Type = %q, want map<string, string>", hyperParams.Type)
 	}
 
 	if len(pf.Enums) != 2 {

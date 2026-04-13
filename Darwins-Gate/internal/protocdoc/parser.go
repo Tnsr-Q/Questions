@@ -1,6 +1,7 @@
 package protocdoc
 
 import (
+	"strconv"
 	"strings"
 
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -83,6 +84,9 @@ func parseMessage(md *descriptorpb.DescriptorProto, pkg string, locs locationMap
 		Description: locs.leadingComment(path),
 	}
 
+	// Build a set of nested map-entry message names so we can detect map fields.
+	mapEntries := buildMapEntrySet(md)
+
 	oneofNames := make(map[int32]string)
 	for _, od := range md.GetOneofDecl() {
 		oneofNames[int32(len(oneofNames))] = od.GetName()
@@ -90,7 +94,7 @@ func parseMessage(md *descriptorpb.DescriptorProto, pkg string, locs locationMap
 
 	for i, fd := range md.GetField() {
 		fPath := append(append([]int32{}, path...), 2, int32(i))
-		f := parseField(fd, locs, fPath, oneofNames)
+		f := parseField(fd, locs, fPath, oneofNames, mapEntries)
 		msg.Fields = append(msg.Fields, f)
 	}
 
@@ -98,7 +102,34 @@ func parseMessage(md *descriptorpb.DescriptorProto, pkg string, locs locationMap
 	return msg
 }
 
-func parseField(fd *descriptorpb.FieldDescriptorProto, locs locationMap, path []int32, oneofNames map[int32]string) Field {
+// buildMapEntrySet returns a map of fully-qualified type names that are
+// compiler-generated map entry messages. The key and value type names are
+// stored as the map value in "key_type, value_type" format.
+func buildMapEntrySet(md *descriptorpb.DescriptorProto) map[string]mapEntryInfo {
+	entries := make(map[string]mapEntryInfo)
+	for _, nested := range md.GetNestedType() {
+		if nested.GetOptions().GetMapEntry() {
+			var keyType, valueType string
+			for _, f := range nested.GetField() {
+				switch f.GetName() {
+				case "key":
+					keyType = fieldTypeName(f)
+				case "value":
+					valueType = fieldTypeName(f)
+				}
+			}
+			entries[nested.GetName()] = mapEntryInfo{keyType: keyType, valueType: valueType}
+		}
+	}
+	return entries
+}
+
+type mapEntryInfo struct {
+	keyType   string
+	valueType string
+}
+
+func parseField(fd *descriptorpb.FieldDescriptorProto, locs locationMap, path []int32, oneofNames map[int32]string, mapEntries map[string]mapEntryInfo) Field {
 	f := Field{
 		Name:        fd.GetName(),
 		Description: locs.leadingComment(path),
@@ -114,15 +145,14 @@ func parseField(fd *descriptorpb.FieldDescriptorProto, locs locationMap, path []
 		f.Label = "optional"
 	}
 
+	// Detect map fields using the compiler-generated map entry messages.
 	if fd.GetType() == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE && fd.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
-		// Map fields are represented as repeated messages with a generated entry type.
-		// We detect this heuristically: the type name ends with "Entry".
 		typeName := baseName(fd.GetTypeName())
-		if strings.HasSuffix(typeName, "Entry") {
+		if entry, ok := mapEntries[typeName]; ok {
 			f.IsMap = true
 			f.IsRepeated = false
 			f.Label = ""
-			f.Type = "map<" + strings.TrimSuffix(typeName, "Entry") + ">"
+			f.Type = "map<" + entry.keyType + ", " + entry.valueType + ">"
 		}
 	}
 
@@ -189,32 +219,9 @@ func (lm locationMap) leadingComment(path []int32) string {
 func pathKey(path []int32) string {
 	parts := make([]string, len(path))
 	for i, p := range path {
-		parts[i] = itoa(p)
+		parts[i] = strconv.FormatInt(int64(p), 10)
 	}
 	return strings.Join(parts, ".")
-}
-
-func itoa(i int32) string {
-	if i == 0 {
-		return "0"
-	}
-	neg := false
-	if i < 0 {
-		neg = true
-		i = -i
-	}
-	var buf [11]byte
-	pos := len(buf)
-	for i > 0 {
-		pos--
-		buf[pos] = byte('0' + i%10)
-		i /= 10
-	}
-	if neg {
-		pos--
-		buf[pos] = '-'
-	}
-	return string(buf[pos:])
 }
 
 func fieldTypeName(fd *descriptorpb.FieldDescriptorProto) string {
