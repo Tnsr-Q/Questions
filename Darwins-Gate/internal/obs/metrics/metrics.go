@@ -59,6 +59,8 @@ type EBPFMapMetrics struct {
 	MapUpdateErrors     atomic.Int64
 	MapEntries          atomic.Int64 // current routing_map size
 	MapMaxEntries       int64        // constant: 1024
+	RouteHits           atomic.Int64 // cumulative packet hits from eBPF stats
+	RouteMisses         atomic.Int64 // cumulative packet misses from eBPF stats
 }
 
 func (m *EBPFMapMetrics) IncMutationsReceived() {
@@ -88,6 +90,14 @@ func (m *EBPFMapMetrics) IncMapLookupErrors() {
 
 func (m *EBPFMapMetrics) IncMapUpdateErrors() {
 	m.MapUpdateErrors.Add(1)
+}
+
+func (m *EBPFMapMetrics) AddRouteHits(n int64) {
+	m.RouteHits.Add(n)
+}
+
+func (m *EBPFMapMetrics) AddRouteMisses(n int64) {
+	m.RouteMisses.Add(n)
 }
 
 // ── SwarmMetrics — overseer / Pyro5 bridge ─────────────────────────────────
@@ -193,6 +203,8 @@ func (c *Collector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		wfCounter("tensorq_ebpf_map_update_errors_total", "Total eBPF map write failures", float64(e.MapUpdateErrors.Load()))
 		wf("tensorq_ebpf_map_entries", "Current number of entries in routing_map", float64(e.MapEntries.Load()))
 		wf("tensorq_ebpf_map_max_entries", "Maximum capacity of routing_map", float64(e.MapMaxEntries))
+		wfCounter("tensorq_ebpf_route_hits_total", "Total packet hits from eBPF routing stats", float64(e.RouteHits.Load()))
+		wfCounter("tensorq_ebpf_route_misses_total", "Total packet misses from eBPF routing stats", float64(e.RouteMisses.Load()))
 	}
 
 	// Swarm bridge metrics

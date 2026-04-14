@@ -19,6 +19,7 @@ import (
 	connectpb "github.com/tnsr-q/Questions/gen/go/darwinianv1/darwinianv1connect"
 
 	// Internal observability and swarm bridge
+	"github.com/tnsr-q/Questions/internal/obs"
 	"github.com/tnsr-q/Questions/internal/obs/metrics"
 	"github.com/tnsr-q/Questions/internal/obs/tracing"
 	swarmbridge "github.com/tnsr-q/Questions/internal/swarmbridge/client"
@@ -234,6 +235,11 @@ func main() {
 		go pollMapEntries(m, 5*time.Second)
 	}
 
+	// 1b. Load the pinned eBPF stats_map and start polling route counters
+	const statsPath = "/sys/fs/bpf/tensorq/stats_map"
+	statsReader := obs.NewStatsReader(statsPath)
+	go pollRouteStats(statsReader, 5*time.Second)
+
 	// 2. Initialize swarm bridge client (best-effort — gateway runs without it)
 	var bridge *swarmbridge.Client
 	if bc, err := swarmbridge.New(swarmbridge.Config{}); err == nil {
@@ -323,5 +329,43 @@ func pollMapEntries(m *ebpf.Map, interval time.Duration) {
 		}
 		metrics.EBPFMapMetricsInstance.MapEntries.Store(count)
 		log.Printf("eBPF routing_map: %d/%d entries", count, metrics.EBPFMapMetricsInstance.MapMaxEntries)
+	}
+}
+
+// pollRouteStats periodically reads the eBPF stats_map and updates
+// tensorq_ebpf_route_hits_total and tensorq_ebpf_route_misses_total metrics.
+func pollRouteStats(reader *obs.StatsReader, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	var lastHits, lastMisses uint64
+	for range ticker.C {
+		counters, _, err := reader.Read()
+		if err != nil {
+			log.Printf("WARN: eBPF stats read error: %v", err)
+			metrics.EBPFMapMetricsInstance.IncMapLookupErrors()
+			continue
+		}
+
+		// Calculate deltas since last poll
+		hitsDelta := counters.Hits - lastHits
+		missesDelta := counters.Misses - lastMisses
+
+		if hitsDelta > 0 {
+			metrics.EBPFMapMetricsInstance.AddRouteHits(int64(hitsDelta))
+		}
+		if missesDelta > 0 {
+			metrics.EBPFMapMetricsInstance.AddRouteMisses(int64(missesDelta))
+		}
+
+		lastHits = counters.Hits
+		lastMisses = counters.Misses
+
+		hitRate := float64(0)
+		if counters.Hits+counters.Misses > 0 {
+			hitRate = float64(counters.Hits) / float64(counters.Hits+counters.Misses) * 100
+		}
+		log.Printf("eBPF route stats: hits=%d misses=%d errors=%d (hit rate=%.2f%%)",
+			counters.Hits, counters.Misses, counters.Errors, hitRate)
 	}
 }

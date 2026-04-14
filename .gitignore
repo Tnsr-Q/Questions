@@ -10,6 +10,7 @@ vendor/
 # Logs and temp files
 *.log
 *.tmp
+*.swp
 
 # Environment
 .env
@@ -20,19 +21,56 @@ vendor/
 .vscode/
 .idea/
 
-# Go-specific
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Build directories
+target/
+build/
+dist/
+
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info/
+.eggs/
+
+# Go specific
 *.exe
 *.dll
 *.so
-*.a
 *.dylib
-*.jar
-*.war
-*.class
-*.jar
-*.war
-*.class
-*.mod
-*.sum
-*.work
+*.test
+*.prof
+cover.out
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 ```
