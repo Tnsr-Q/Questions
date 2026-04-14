@@ -1,204 +1,26 @@
 ---
-# mutation-firewalld Deployment
-# Sole authority for committing route mutations to the kernel.
-# Implements deterministic admission pipeline: staging → probing → commit → rollback.
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mutation-firewalld
-  namespace: darwins-gate
-  labels:
-    app: mutation-firewalld
-    component: controlplane
-    managed-by: kustomize
-spec:
-  replicas: 1
-  strategy:
-    type: Recreate
-  selector:
-    matchLabels:
-      app: mutation-firewalld
-  template:
-    metadata:
-      labels:
-        app: mutation-firewalld
-        component: controlplane
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8443"
-        prometheus.io/path: "/metrics"
-    spec:
-      serviceAccountName: mutation-firewalld-sa
-      containers:
-        - name: mutation-firewalld
-          image: tensorq/mutation-firewalld:latest
-          imagePullPolicy: IfNotPresent
-          command:
-            - /bin/mutation-firewalld
-          ports:
-            - name: mtls
-              containerPort: 8443
-              protocol: TCP
-            - name: health
-              containerPort: 8081
-              protocol: TCP
-          env:
-            # Allowed CIDR ranges for VIP mutations
-            - name: ALLOWED_VIP_CIDRS
-              value: "10.96.0.0/12,10.244.0.0/16"
-            - name: ALLOWED_POD_CIDRS
-              value: "10.244.0.0/16"
-            # Rate limiting
-            - name: VIP_MAX_MUTATIONS_PER_SECOND
-              value: "10"
-            - name: CALLER_MAX_MPS
-              value: "5"
-            - name: GLOBAL_MAX_MPS
-              value: "20"
-            # TTL bounds
-            - name: MIN_TTL
-              value: "30"
-            - name: MAX_TTL
-              value: "3600"
-            # Probe configuration
-            - name: PROBE_WARMUP
-              value: "5s"
-            - name: PROBE_DURATION
-              value: "10s"
-            - name: PROBE_SUCCESS_RATIO
-              value: "0.95"
-            # Post-commit monitoring
-            - name: MONITOR_WINDOW
-              value: "60s"
-            - name: MAX_LATENCY_DELTA
-              value: "0.2"
-            - name: MAX_DROP_SPIKE
-              value: "0.05"
-            # Stability controls
-            - name: MIN_IMPROVEMENT
-              value: "0.05"
-            - name: STABILITY_WINDOW
-              value: "120s"
-            - name: COOLDOWN_DURATION
-              value: "300s"
-            - name: MAX_ROLLBACKS_PER_HOUR
-              value: "5"
-            # Map pressure
-            - name: HIGH_WATER_MARK
-              value: "0.9"
-            - name: CRITICAL_WATER_MARK
-              value: "0.95"
-            # Feature flags
-            - name: ENABLE_AB_MAPS
-              value: "true"
-            - name: STRICT_MAC_MATCH
-              value: "false"
-            - name: LEADER_FENCING_ENABLED
-              value: "true"
-            # Pod identity
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
-          securityContext:
-            privileged: false
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              add:
-                - BPF
-                - NET_ADMIN
-              drop:
-                - ALL
-          volumeMounts:
-            - name: bpf-tensorq
-              mountPath: /sys/fs/bpf/tensorq
-            - name: mtls-certs
-              mountPath: /etc/tls
-              readOnly: true
-            - name: tmp
-              mountPath: /tmp
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8081
-              scheme: HTTP
-            initialDelaySeconds: 15
-            periodSeconds: 15
-            timeoutSeconds: 5
-            failureThreshold: 3
-          readinessProbe:
-            httpGet:
-              path: /readyz
-              port: 8081
-              scheme: HTTP
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 3
-            failureThreshold: 3
-      volumes:
-        - name: bpf-tensorq
-          hostPath:
-            path: /sys/fs/bpf/tensorq
-            type: DirectoryOrCreate
-        - name: mtls-certs
-          secret:
-            secretName: mutation-firewalld-mtls
-            defaultMode: 0400
-            optional: true
-        - name: tmp
-          emptyDir:
-            medium: Memory
-            sizeLimit: 64Mi
-      restartPolicy: Always
-      terminationGracePeriodSeconds: 60
-      dnsPolicy: ClusterFirst
+# DEPRECATED: mutation-firewalld
+# This manifest is retained for historical reference only.
+# The dual-server architecture was evaluated and explicitly deprecated in favor of
+# a monolithic Tier-1 ConnectRPC switchboard (gatewayd) to optimize for absolute
+# minimum latency between Swarm consensus and WebGL rendering.
+#
+# The admission pipeline has been condensed from a multi-stage microservice into
+# a strict, synchronous validation block within UpdateAlphaRoute in gatewayd.
+#
+# See: docs/architecture/20-route-mutation-firewall.md (DEPRECATED)
+# See: cmd/gatewayd/main.go (Unified ConnectRPC Monolith)
 ---
-# mutation-firewalld Service
-# Exposes mTLS gRPC endpoint for route mutation admission.
-apiVersion: v1
-kind: Service
-metadata:
-  name: mutation-firewalld
-  namespace: darwins-gate
-  labels:
-    app: mutation-firewalld
-    component: controlplane
-spec:
-  type: ClusterIP
-  selector:
-    app: mutation-firewalld
-  ports:
-    - name: mtls
-      port: 8443
-      targetPort: 8443
-      protocol: TCP
-    - name: health
-      port: 8081
-      targetPort: 8081
-      protocol: TCP
----
-# mutation-firewalld ServiceAccount
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: mutation-firewalld-sa
-  namespace: darwins-gate
-  labels:
-    app: mutation-firewalld
-    managed-by: kustomize
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: mutation-firewalld
+#   namespace: darwins-gate
+#   labels:
+#     app: mutation-firewalld
+#     component: controlplane
+#     managed-by: kustomize
+#     deprecated: "true"
+#     deprecation-reason: "Replaced by unified gatewayd monolith"
+# spec:
+#   # ... [original spec retained for reference only]

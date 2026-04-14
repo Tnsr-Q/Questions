@@ -1,3 +1,36 @@
+# DEPRECATED: Route Mutation Firewall Specification
+
+**Status:** DEPRECATED (as of Tier-1 ConnectRPC Monolith)
+
+**Replacement:** See `cmd/gatewayd/main.go` — Unified ConnectRPC Gateway
+
+**Rationale:** The dual-server architecture was evaluated and explicitly deprecated in favor of a monolithic Tier-1 switchboard to optimize for absolute minimum latency between Swarm consensus and WebGL rendering. The admission pipeline was condensed from a multi-stage microservice into a strict, synchronous validation block within `UpdateAlphaRoute`.
+
+---
+
+## Historical Document
+
+This document describes the original dual-server design with separate `gatewayd` (non-privileged, data plane) and `mutation-firewalld` (privileged, control plane) services. This architecture was intentionally abandoned to eliminate inter-service RPC latency and reduce operational complexity.
+
+### What Was Deprecated
+
+- **Dual-server separation:** Control plane and data plane now run in a single `gatewayd` process
+- **Multi-stage admission pipeline:** Staging → probing → commit → rollback condensed into synchronous validation
+- **A/B map switching:** Dropped as unnecessary overhead for current JAX swarm evolution phase
+- **Separate privilege boundaries:** Security risk accepted for closed-loop research grid
+
+### Current Implementation
+
+The unified `gatewayd` service (see `cmd/gatewayd/main.go`) now handles:
+1. **Control Plane:** eBPF map mutations via `UpdateAlphaRoute` with condensed admission checks
+2. **Data Plane:** Pyodide/ONNX streaming via `StreamSimulation` for browser-based WebGL rendering
+
+Both planes serve over a single HTTP/2 port (8080) using ConnectRPC.
+
+---
+
+## Original Specification (Historical Reference Only)
+
 Guardrails Spec — Route Mutation Firewall (AI/Swarm → Go → eBPF)
 
  This defines the deterministic safety envelope around UpdateAlphaRoute so Python/Pyro5 (or any AI) can propose changes without risking kernel/network stability.
