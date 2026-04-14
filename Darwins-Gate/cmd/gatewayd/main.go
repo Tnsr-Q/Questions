@@ -1,6 +1,16 @@
 package main
 
 import (
+    "fmt"
+    "github.com/gorilla/mux"
+)
+
+func main() {
+    r := mux.NewRouter()
+    fmt.Println("Router created:", r)
+}
+
+import (
 	"context"
 	"encoding/binary"
 	"fmt"
