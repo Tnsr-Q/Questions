@@ -1,24 +1,38 @@
 ```
-# Generated/compiled protobuf files
-*.pb.go
-*.pb.java
-*.pb.py
-*.pb.ts
-*.pb.js
-*.pb.dart
-*.pb.php
-*.pb.rb
-*.pb.csharp
-*.pb.objc
-*.pb.swift
+# Compiled and build artifacts
+*.o
+*.obj
+*.out
 
-# Proto compilation artifacts
-proto/gen/
-proto/build/
+# Dependencies
+vendor/
 
-# Temporary compilation scripts
-*.sh.swp
-*.sh~
+# Logs and temp files
+*.log
+*.tmp
 
-# Preserve any existing rules
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Go-specific
+*.exe
+*.dll
+*.so
+*.a
+*.dylib
+*.jar
+*.war
+*.class
+*.jar
+*.war
+*.class
+*.mod
+*.sum
+*.work
 ```

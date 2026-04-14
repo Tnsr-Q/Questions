@@ -7,7 +7,6 @@ package metrics
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -215,12 +214,12 @@ func (c *Collector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // DefaultCollector returns a Collector wired to the global metric singletons.
 func DefaultCollector() *Collector {
-	return NewCollector(GatewayMetrics, EBPFMapMetrics, SwarmMetrics)
+	return NewCollector(GatewayMetrics, EBPFMapMetricsInstance, SwarmMetricsInstance)
 }
 
 // Global instances — exported so packages can increment directly.
 var (
-	GatewayMetrics  = &StreamMetrics{}
-	EBPFMapMetrics  = &EBPFMapMetrics{MapMaxEntries: 1024}
-	SwarmMetrics    = &SwarmMetrics{}
+	GatewayMetrics      = &StreamMetrics{}
+	EBPFMapMetricsInstance = &EBPFMapMetrics{MapMaxEntries: 1024}
+	SwarmMetricsInstance   = &SwarmMetrics{}
 )
