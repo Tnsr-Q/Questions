@@ -62,17 +62,17 @@ func (c *Client) StartLoops(ctx context.Context, cfg LoopConfig, telemetryFn Tel
 				case errCh <- fmt.Errorf("leader refresh: %w", err):
 				default:
 				}
-				metrics.SwarmMetrics.IncLeaderFetchErrors()
+				metrics.SwarmMetricsInstance.IncLeaderFetchErrors()
 				continue
 			}
-			metrics.SwarmMetrics.IncLeaderFetches()
+			metrics.SwarmMetricsInstance.IncLeaderFetches()
 
 			if leader.QuorumStatus == "HEALTHY" {
-				metrics.SwarmMetrics.QuorumHealthy.Store(1)
+				metrics.SwarmMetricsInstance.QuorumHealthy.Store(1)
 			} else {
-				metrics.SwarmMetrics.QuorumHealthy.Store(0)
+				metrics.SwarmMetricsInstance.QuorumHealthy.Store(0)
 			}
-			metrics.SwarmMetrics.CurrentEpoch.Store(leader.Epoch)
+			metrics.SwarmMetricsInstance.CurrentEpoch.Store(leader.Epoch)
 		}
 	}()
 
@@ -98,7 +98,7 @@ func (c *Client) StartLoops(ctx context.Context, cfg LoopConfig, telemetryFn Tel
 				case errCh <- fmt.Errorf("telemetry batch: %w", err):
 				default:
 				}
-				metrics.SwarmMetrics.IncTelemetryErrors()
+				metrics.SwarmMetricsInstance.IncTelemetryErrors()
 				continue
 			}
 
@@ -111,10 +111,10 @@ func (c *Client) StartLoops(ctx context.Context, cfg LoopConfig, telemetryFn Tel
 				case errCh <- fmt.Errorf("post telemetry: %w", err):
 				default:
 				}
-				metrics.SwarmMetrics.IncTelemetryErrors()
+				metrics.SwarmMetricsInstance.IncTelemetryErrors()
 				continue
 			}
-			metrics.SwarmMetrics.IncTelemetryBatches()
+			metrics.SwarmMetricsInstance.IncTelemetryBatches()
 		}
 	}()
 
@@ -136,7 +136,7 @@ func (c *Client) StartLoops(ctx context.Context, cfg LoopConfig, telemetryFn Tel
 
 			// Skip if quorum is unhealthy or leader lease is invalid
 			if !c.IsQuorumHealthy() || !c.IsLeaderLeaseValid() {
-				metrics.SwarmMetrics.IncProposalsSkipped()
+				metrics.SwarmMetricsInstance.IncProposalsSkipped()
 				continue
 			}
 
@@ -149,7 +149,7 @@ func (c *Client) StartLoops(ctx context.Context, cfg LoopConfig, telemetryFn Tel
 					}
 					continue
 				}
-				metrics.SwarmMetrics.IncProposalsFetched()
+				metrics.SwarmMetricsInstance.IncProposalsFetched()
 
 				if resp.Proposal == nil {
 					continue // no proposal available
@@ -164,9 +164,9 @@ func (c *Client) StartLoops(ctx context.Context, cfg LoopConfig, telemetryFn Tel
 					continue
 				}
 				if forwarded {
-					metrics.SwarmMetrics.IncProposalsForwarded()
+					metrics.SwarmMetricsInstance.IncProposalsForwarded()
 				} else {
-					metrics.SwarmMetrics.IncProposalsSkipped()
+					metrics.SwarmMetricsInstance.IncProposalsSkipped()
 				}
 			}
 		}

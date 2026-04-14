@@ -50,7 +50,7 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 	msg := req.Msg
 	obsID := tracing.NewTraceID()
 
-	metrics.EBPFMapMetrics.IncMutationsReceived()
+	metrics.EBPFMapMetricsInstance.IncMutationsReceived()
 
 	ack := &pb.RouteAck{
 		ObservabilityId: obsID,
@@ -60,7 +60,7 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 
 	// Dry-run support
 	if msg.DryRun {
-		metrics.EBPFMapMetrics.IncDryRuns()
+		metrics.EBPFMapMetricsInstance.IncDryRuns()
 		ack.Status = pb.RouteStatus_ROUTE_STATUS_STAGED
 		ack.StatusMessage = "Dry-run: mutation validated but not applied"
 		ack.ChecksPassed = append(ack.ChecksPassed, "dry_run_validation")
@@ -73,7 +73,7 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 	macAddr, err3 := net.ParseMAC(msg.TargetMacAddress)
 
 	if err != nil || err2 != nil || err3 != nil {
-		metrics.EBPFMapMetrics.IncMutationsRejected()
+		metrics.EBPFMapMetricsInstance.IncMutationsRejected()
 		ack.Status = pb.RouteStatus_ROUTE_STATUS_REJECTED
 		ack.StatusMessage = "Admission rejected: Malformed Network Inputs"
 		return connect.NewResponse(ack), nil
@@ -83,7 +83,7 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 	if msg.TtlMs > 0 {
 		proposalAge := time.Now().UnixMilli() - int64(msg.Epoch)
 		if proposalAge > int64(msg.TtlMs) {
-			metrics.EBPFMapMetrics.IncMutationsRejected()
+			metrics.EBPFMapMetricsInstance.IncMutationsRejected()
 			ack.Status = pb.RouteStatus_ROUTE_STATUS_REJECTED
 			ack.StatusMessage = fmt.Sprintf("Proposal expired: age=%dms > ttl=%dms", proposalAge, msg.TtlMs)
 			return connect.NewResponse(ack), nil
@@ -104,7 +104,7 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 
 	// Atomic Kernel eBPF Map Swap
 	if g.routingMap == nil {
-		metrics.EBPFMapMetrics.IncMutationsFailed()
+		metrics.EBPFMapMetricsInstance.IncMutationsFailed()
 		ack.Status = pb.RouteStatus_ROUTE_STATUS_REJECTED
 		ack.StatusMessage = "Kernel fault: eBPF map not loaded (not in privileged mode)"
 		return connect.NewResponse(ack), nil
@@ -113,15 +113,15 @@ func (g *UnifiedGateway) UpdateAlphaRoute(
 	ack.ChecksPassed = append(ack.ChecksPassed, "input_validation", "ttl_check", "map_access")
 
 	if err := g.routingMap.Update(vipKey, entry, ebpf.UpdateAny); err != nil {
-		metrics.EBPFMapMetrics.IncMutationsFailed()
-		metrics.EBPFMapMetrics.IncMapUpdateErrors()
+		metrics.EBPFMapMetricsInstance.IncMutationsFailed()
+		metrics.EBPFMapMetricsInstance.IncMapUpdateErrors()
 		ack.Status = pb.RouteStatus_ROUTE_STATUS_PROBE_FAILED
 		ack.StatusMessage = fmt.Sprintf("Kernel fault: %v", err)
 		ack.ChecksFailed = append(ack.ChecksFailed, "map_update")
 		return connect.NewResponse(ack), nil
 	}
 
-	metrics.EBPFMapMetrics.IncMutationsApplied()
+	metrics.EBPFMapMetricsInstance.IncMutationsApplied()
 	ack.Status = pb.RouteStatus_ROUTE_STATUS_APPLIED
 	ack.StatusMessage = "eBPF Route Alpha Active"
 	ack.AppliedAtUnixNs = time.Now().UnixNano()
@@ -166,9 +166,9 @@ func (g *UnifiedGateway) reportOutcome(obsID, vip string, ack *pb.RouteAck) {
 
 	if _, err := g.bridge.PostOutcome(ctx, outcome); err != nil {
 		log.Printf("WARN: failed to report outcome %s: %v", obsID, err)
-		metrics.SwarmMetrics.IncOutcomeErrors()
+		metrics.SwarmMetricsInstance.IncOutcomeErrors()
 	} else {
-		metrics.SwarmMetrics.IncOutcomesReported()
+		metrics.SwarmMetricsInstance.IncOutcomesReported()
 	}
 }
 
@@ -229,6 +229,9 @@ func main() {
 	} else {
 		defer m.Close()
 		log.Println("eBPF routing_map loaded from pinned path")
+
+		// Start background goroutine to poll map entry count every 5 seconds
+		go pollMapEntries(m, 5*time.Second)
 	}
 
 	// 2. Initialize swarm bridge client (best-effort — gateway runs without it)
@@ -297,4 +300,28 @@ func ipToNetUint32(ipStr string) (uint32, error) {
 		return 0, fmt.Errorf("invalid IPv4")
 	}
 	return binary.BigEndian.Uint32(ip), nil
+}
+
+// pollMapEntries periodically counts entries in the eBPF routing map
+// and updates the tensorq_ebpf_map_entries metric.
+func pollMapEntries(m *ebpf.Map, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		var count int64
+		iter := m.Iterate()
+		var key uint32
+		var value RouteEntry
+		for iter.Next(&key, &value) {
+			count++
+		}
+		if err := iter.Err(); err != nil {
+			log.Printf("WARN: eBPF map iteration error: %v", err)
+			metrics.EBPFMapMetricsInstance.IncMapLookupErrors()
+			continue
+		}
+		metrics.EBPFMapMetricsInstance.MapEntries.Store(count)
+		log.Printf("eBPF routing_map: %d/%d entries", count, metrics.EBPFMapMetricsInstance.MapMaxEntries)
+	}
 }
