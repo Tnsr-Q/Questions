@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package tensorq.darwinian.v1;
+
+option go_package = "github.com/tensorq/gateway/gen/go/darwinianv1";
+
+// CortexGateway is the unified Tier-1 switchboard serving both:
+// 1. Data Plane: Pyodide/ONNX streaming for WebGL rendering (StreamSimulation)
+// 2. Control Plane: eBPF kernel mutations for JAX Swarm routing (UpdateAlphaRoute)
+//
+// Architecture Note: This monolithic design intentionally consolidates both planes
+// on a single ConnectRPC endpoint (:8080) to minimize latency between Swarm
+// consensus and browser canvas updates. The dual-server architecture (gatewayd +
+// mutation-firewalld) has been deprecated as of v2.0.0.
+service CortexGateway {
+  // StreamSimulation serves Pyodide execution chunks and ONNX weights to browser clients
+  rpc StreamSimulation(SimRequest) returns (stream CodeChunk);
+  
+  // UpdateAlphaRoute performs atomic eBPF map mutations with condensed admission pipeline
+  // Admission checks: IP/MAC format validation, context TTL enforcement
+  // Note: Staging/A/B probing/rollback dropped for phase-1; failure mode = canvas drop
+  rpc UpdateAlphaRoute(RouteMutation) returns (RouteAck);
+}
+
+message SimRequest {
+  string model_id = 1;
+  map<string, string> hyper_parameters = 2;
+  int32 chunk_size_hint = 3;
+}
+
+message CodeChunk {
+  oneof payload {
+    string code = 1;           // Pyodide execution chunk
+    bytes weights = 2;         // ONNX binary weights for WebGPU
+  }
+  ChunkType type = 3;
+  uint64 sequence_id = 4;
+}
+
+enum ChunkType {
+  CHUNK_TYPE_UNSPECIFIED = 0;
+  CHUNK_TYPE_PREAMBLE = 1;
+  CHUNK_TYPE_DEFINITION = 2;
+  CHUNK_TYPE_EXECUTION = 3;
+  CHUNK_TYPE_WEIGHTS = 4;
+}
+
+message RouteMutation {
+  string mutation_id = 1;                    // Observability correlation ID
+  string virtual_ip = 2;                     // VIP key for eBPF map
+  string target_pod_ip = 3;                  // Real pod IP (big-endian uint32)
+  string target_mac_address = 4;             // MAC address hint (6 bytes)
+  uint64 expected_route_version = 5;         // Optimistic concurrency check
+  
+  // Condensed admission pipeline: TTL enforced synchronously in UpdateAlphaRoute
+  uint64 ttl_ms = 6;
+  
+  bool dry_run = 7;                          // Validation-only mode
+  uint64 epoch = 8;                          // JAX swarm epoch
+  string reason = 9;                         // Mutation rationale
+}
+
+enum RouteStatus {
+  ROUTE_STATUS_UNSPECIFIED = 0;
+  ROUTE_STATUS_APPLIED = 1;                  // eBPF map updated successfully
+  ROUTE_STATUS_STAGED = 2;                   // DEPRECATED (dual-server legacy)
+  ROUTE_STATUS_REJECTED = 3;                 // Admission rejected (malformed input)
+  ROUTE_STATUS_PROBE_FAILED = 4;             // Kernel fault during map update
+  ROUTE_STATUS_ROLLED_BACK = 5;              // DEPRECATED (dual-server legacy)
+}
+
+message RouteAck {
+  RouteStatus status = 1;
+  string status_message = 2;
+  int64 applied_at_unix_ns = 3;              // Timestamp of successful mutation
+  uint64 applied_route_version = 4;          // New route version after update
+  repeated string checks_passed = 5;         // Admission checks passed (IP/MAC/TTL)
+  repeated string checks_failed = 6;         // Failed checks (if any)
+  string rollback_reason = 7;                // DEPRECATED field
+  string observability_id = 8;               // Echo of mutation_id for tracing
+}

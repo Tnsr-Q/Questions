@@ -1,71 +1,24 @@
 ```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-dist/
-build/
-target/
-*.class
-*.so
-*.dll
-*.exe
-*.a
+# Generated/compiled protobuf files
+*.pb.go
+*.pb.java
+*.pb.py
+*.pb.ts
+*.pb.js
+*.pb.dart
+*.pb.php
+*.pb.rb
+*.pb.csharp
+*.pb.objc
+*.pb.swift
 
-# Dependencies
-.venv/
-venv/
-node_modules/
-.mypy_cache/
-.pytest_cache/
-.coverage
-coverage/
-htmlcov/
-.gradle/
-julia-*/
-zig*/
+# Proto compilation artifacts
+proto/gen/
+proto/build/
 
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
+# Temporary compilation scripts
+*.sh.swp
+*.sh~
 
-# Environment
-.env
-.env.local
-*.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# System files
-.DS_Store
-Thumbs.db
-
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
+# Preserve any existing rules
 ```

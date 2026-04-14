@@ -1,47 +1,12 @@
-: v1
+version: v1
 
 plugins:
   - name: go
-    out: proto
-    opt:
-      - paths=source_relative
-  
-  - name: go-xerror
-    out: proto
+    out: ../gen/go
     opt:
       - paths=source_relative
 
-  - name: go-grpc
-    out: proto
-    opt:
-      - require_unimplemented_servers=false
-      - paths=source_relative
-
-  - name: go-echo
-    out: proto
-    opt: 
-      - paths=source_relative
-
-  - name: go-gin
-    out: proto
-    opt: 
-      - paths=source_relative
-
-  - name: grpc-gateway
-    out: proto
-    opt: 
-      - paths=source_relative
-
-  - name: openapiv2
-    out: proto
-    opt: 
-      - disable_default_errors=true
-      # - enums_as_ints=true
-      # - omit_enum_default_value=true
-      - generate_unbound_methods=true
-      - include_package_in_tags=true
-
-  - name: go-xfieldmask
-    out: proto
+  - name: connect-go
+    out: ../gen/go
     opt:
       - paths=source_relative
