@@ -1,0 +1,145 @@
+3) Kernel parameters schema: ligo.echo_search
+
+This validates manifest.parameters for your LIGO echo search kernel.
+
+3.1 kernels/ligo.echo_search/parameters.schema.json
+
+
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kernels.ligo.echo_search.parameters.v1.schema",
+  "title": "ligo.echo_search parameters (ric.echo_search.v1)",
+  "type": "object",
+  "required": ["data_scope", "hyperparameters", "validation"],
+  "additionalProperties": false,
+
+  "properties": {
+    "data_scope": {
+      "type": "object",
+      "required": ["event", "detectors", "gps_merger", "window"],
+      "additionalProperties": false,
+      "properties": {
+        "event": { "type": "string", "minLength": 1 },
+        "detectors": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "enum": ["H1", "L1", "V1", "K1"] }
+        },
+        "gps_merger": { "type": "number" },
+
+        "window": {
+          "type": "object",
+          "required": ["on_source_duration", "off_source_duration", "psd_segment_length"],
+          "additionalProperties": false,
+          "properties": {
+            "on_source_duration": { "type": "number", "exclusiveMinimum": 0 },
+            "off_source_duration": { "type": "number", "exclusiveMinimum": 0 },
+            "psd_segment_length": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+
+    "hyperparameters": {
+      "type": "object",
+      "required": ["band_hz", "comb", "scan"],
+      "additionalProperties": false,
+      "properties": {
+        "band_hz": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number" }
+        },
+
+        "comb": {
+          "type": "object",
+          "required": ["delta_f_hz", "tooth_width_hz", "parity"],
+          "additionalProperties": false,
+          "properties": {
+            "delta_f_hz": { "type": "number", "exclusiveMinimum": 0 },
+            "tooth_width_hz": { "type": "number", "exclusiveMinimum": 0 },
+            "parity": { "type": "string", "enum": ["odd", "even", "none"] }
+          }
+        },
+
+        "scan": {
+          "type": "object",
+          "required": ["dt_range", "dt_step"],
+          "additionalProperties": false,
+          "properties": {
+            "dt_range": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": { "type": "number" }
+            },
+            "dt_step": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+
+    "validation": {
+      "type": "object",
+      "required": ["null_tests", "injection"],
+      "additionalProperties": false,
+      "properties": {
+        "null_tests": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["method"],
+            "additionalProperties": true,
+            "properties": {
+              "method": { "type": "string", "enum": ["shifted_comb", "time_slides"] },
+
+              "n_trials": { "type": "integer", "minimum": 1 },
+              "shift_hz_range": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": { "type": "number" }
+              },
+              "shift_strategy": { "type": "string", "enum": ["uniform", "grid"] },
+
+              "n_slides": { "type": "integer", "minimum": 1 },
+              "slide_step": { "type": "number", "exclusiveMinimum": 0 }
+            },
+
+            "allOf": [
+              {
+                "if": { "properties": { "method": { "const": "shifted_comb" } } },
+                "then": { "required": ["n_trials", "shift_hz_range", "shift_strategy"] }
+              },
+              {
+                "if": { "properties": { "method": { "const": "time_slides" } } },
+                "then": { "required": ["n_slides", "slide_step"] }
+              }
+            ]
+          }
+        },
+
+        "injection": {
+          "type": "object",
+          "required": ["enabled"],
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "snr_levels": {
+              "type": "array",
+              "items": { "type": "number", "exclusiveMinimum": 0 }
+            }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "enabled": { "const": true } } },
+              "then": { "required": ["snr_levels"] }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

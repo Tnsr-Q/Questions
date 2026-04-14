@@ -1,0 +1,48 @@
+Experiment manifest v1: spec + canonicalization + freeze hash
+
+This gives you a single file (experiment_manifest.json) that is:
+
+the only human-edited contract (UI/CLI both emit it)
+schema-validatable
+content-addressable via freeze_hash = sha256(canonical_json(manifest))
+portable across cluster/local/browser-viz
+1) Canonicalization rules (normative)
+1.1 JSON-only, no YAML
+
+The manifest is JSON. No YAML allowed at this layer.
+
+1.2 Allowed types
+
+Only:
+
+objects (string keys)
+arrays
+strings (UTF-8)
+booleans
+null
+numbers must be finite (no NaN/Inf) and SHOULD be within IEEE-754 double range.
+1.3 Canonical JSON serialization
+
+To compute the freeze hash, serialize the manifest using Canonical JSON:
+
+Object keys sorted lexicographically by Unicode code point.
+No insignificant whitespace.
+Arrays preserved in-order.
+Numbers serialized in a stable way:
+MUST be finite
+SHOULD be emitted using “shortest round-trip” decimal representation (common JSON encoders already do this for doubles)
+Disallow -0 (normalize to 0)
+Strings use standard JSON escaping; do not escape forward slashes.
+Output encoded as UTF-8 bytes.
+
+Reference encoding parameters (Python):
+
+sort_keys=True
+separators=(",", ":")
+ensure_ascii=False
+allow_nan=False
+1.4 Freeze hash
+freeze_hash_hex = sha256( canonical_json_utf8_bytes(manifest) )
+1.5 Input integrity
+If reproducibility.require_hash_check=true, every bindings.inputs[*].sha256_hex MUST be present and MUST match the actual bytes at runtime.
+If false, hashes are optional but strongly recommended

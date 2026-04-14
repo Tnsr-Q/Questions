@@ -1,0 +1,50 @@
+
+registry/example_list_response.json (what the registry returns)
+
+
+{
+  "registry_version": "ric.kernel_registry.v1",
+  "kernels": [
+    {
+      "id": {
+        "name": "ligo.echo_search",
+        "version": "0.1.0",
+        "contract_version": "ric.echo_search.v1"
+      },
+      "title": "LIGO Echo Search (RIC comb/parity)",
+      "description": "FFT-domain comb tooth masking + dt-scan parity statistic with preregistered null tests.",
+      "capability": {
+        "supports_cluster_compute": true,
+        "supports_browser_viz": true,
+        "supports_browser_preview_compute": false
+      },
+      "schemas": {
+        "parameters_json_schema": { "$ref": "kernels/ligo.echo_search/parameters.schema.json" },
+        "ui_hints_json_schema": { "$ref": "schemas/ui_hints.v1.schema.json" }
+      },
+      "ui_hints": { "$ref": "kernels/ligo.echo_search/ui_hints.json" },
+      "examples": {
+        "manifest_parameters_example": {
+          "data_scope": {
+            "event": "GW150914",
+            "detectors": ["H1", "L1"],
+            "gps_merger": 1126259462.4,
+            "window": { "on_source_duration": 32.0, "off_source_duration": 1024.0, "psd_segment_length": 4.0 }
+          },
+          "hyperparameters": {
+            "band_hz": [30.0, 500.0],
+            "comb": { "delta_f_hz": 7.64, "tooth_width_hz": 0.1, "parity": "odd" },
+            "scan": { "dt_range": [-0.01, 0.01], "dt_step": 0.0001 }
+          },
+          "validation": {
+            "null_tests": [
+              { "method": "shifted_comb", "n_trials": 5000, "shift_hz_range": [0.25, 3.0], "shift_strategy": "uniform" },
+              { "method": "time_slides", "n_slides": 1000, "slide_step": 1.0 }
+            ],
+            "injection": { "enabled": true, "snr_levels": [5, 8, 10, 15, 20] }
+          }
+        }
+      }
+    }
+  ]
+}

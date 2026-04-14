@@ -1,0 +1,161 @@
+2) JSON Schema: experiment_manifest.v1.schema.json
+
+Save as: schemas/experiment_manifest.v1.schema.json
+Important: This is the envelope schema. Each kernel also publishes a parameter schema (JSON Schema) that validates parameters. Your UI uses that to build forms.
+
+
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ric.experiment_manifest.v1.schema",
+  "title": "ExperimentManifest v1",
+  "type": "object",
+  "required": ["manifest_version", "experiment", "kernel", "parameters", "bindings", "target", "reproducibility"],
+  "additionalProperties": false,
+
+  "properties": {
+    "manifest_version": {
+      "type": "string",
+      "const": "ric.experiment_manifest.v1"
+    },
+
+    "experiment": {
+      "type": "object",
+      "required": ["experiment_id", "title", "owner", "semver"],
+      "additionalProperties": false,
+      "properties": {
+        "experiment_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "semver": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+        },
+        "notes": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "kernel": {
+      "type": "object",
+      "required": ["id", "version", "contract_version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Kernel package version (SemVer recommended)"
+        },
+        "contract_version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Schema/API version for parameters & outputs, e.g. ric.echo_search.v1"
+        }
+      }
+    },
+
+    "parameters": {
+      "type": "object",
+      "description": "Kernel-specific parameters. Validated by the kernel’s parameter schema.",
+      "additionalProperties": true
+    },
+
+    "bindings": {
+      "type": "object",
+      "required": ["inputs"],
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "required": ["name", "uri"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "uri": { "type": "string", "minLength": 1 },
+              "sha256_hex": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "size_bytes": { "type": "integer", "minimum": 0 },
+              "content_type": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "target": {
+      "type": "object",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["cluster", "local", "browser_viz", "browser_preview"]
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu": { "type": "string" },
+            "memory": { "type": "string" },
+            "gpu": { "type": "integer", "minimum": 0 },
+            "timeout_seconds": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+
+    "reproducibility": {
+      "type": "object",
+      "required": ["seed", "require_hash_check"],
+      "additionalProperties": false,
+      "properties": {
+        "seed": { "type": "integer", "minimum": 0 },
+        "require_hash_check": { "type": "boolean" },
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Determinism knobs recorded and (optionally) enforced."
+        }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "git_commit": { "type": "string" },
+        "nix_drv": { "type": "string" },
+        "build_id": { "type": "string" },
+        "orchestrator": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "results_uri": { "type": "string" },
+        "manifest_out_uri": { "type": "string" },
+        "viz_stream": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "max_frame_rate_hz": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}
