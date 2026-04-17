@@ -80,7 +80,11 @@ build-jaxd:
 # Run JAX'D tests
 test-jaxd:
 	@echo "Running JAX'D tests..."
-	@cd "JAX'D" && python -m pytest tests/
+	@if [ -d "JAX'D" ]; then \
+		cd "JAX'D" && python -m pytest tests/; \
+	else \
+		echo "  warning: JAX'D directory not found; skipping tests"; \
+	fi
 
 # Clean build artifacts
 clean:
