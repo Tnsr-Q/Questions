@@ -5,13 +5,11 @@ on:
     branches: [ "main" ]
     paths:
       - 'Darwins-Gate/rust/**'
-      - 'Darwins-Gate/stateviz/**'
       - '.github/workflows/rust.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'Darwins-Gate/rust/**'
-      - 'Darwins-Gate/stateviz/**'
       - '.github/workflows/rust.yml'
 
 env:
@@ -26,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Darwins-Gate/stateviz
+        working-directory: Darwins-Gate/rust
 
     steps:
     - uses: actions/checkout@v4
