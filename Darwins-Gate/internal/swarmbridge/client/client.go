@@ -462,7 +462,7 @@ func (c *Client) GetConsensus(ctx context.Context) (string, error) {
 
 // CallSolvePhysics invokes the JAX QFT-Engine for physics model solving.
 // TODO: Implement actual RPC to JAX QFT-Engine via the bridge sidecar.
-func (c *Client) CallSolvePhysics(alphaURI string, modelID string) (string, error) {
+func (c *Client) CallSolvePhysics(ctx context.Context, alphaURI string, modelID string) (string, error) {
 	return "", fmt.Errorf("CallSolvePhysics not yet implemented")
 }
 
